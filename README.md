@@ -1,6 +1,6 @@
 # lotusMap
 
-A Next.js host shell that renders selectable repo "faces" and previews linked GitHub Pages apps.
+A Next.js host shell that renders selectable code repos and previews linked GitHub Pages apps.
 
 ## Live URL
 
