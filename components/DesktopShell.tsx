@@ -32,6 +32,9 @@ type DragState = {
 const BASE_SIZE = 360
 const MIN_SIZE = 16
 const MAX_INITIAL_FACES = 4
+const CENTER_PANEL_STICK_RANGE = 92
+const CENTER_PANEL_STICK_PULL = 0.015
+const CENTER_PANEL_MAX_DAMPING = 0.72
 const SPAWN_RATIO_PERCENT = clamp(
   Number(process.env.NEXT_PUBLIC_SPAWN_RATIO_PERCENT ?? "100"),
   1,
@@ -99,6 +102,27 @@ function ringPosition(index: number, count: number, stageWidth: number, stageHei
   }
 }
 
+function nearestPointOnRectBoundary(px: number, py: number, left: number, top: number, right: number, bottom: number) {
+  const clampedX = clamp(px, left, right)
+  const clampedY = clamp(py, top, bottom)
+  const inside = px >= left && px <= right && py >= top && py <= bottom
+
+  if (!inside) {
+    return { x: clampedX, y: clampedY }
+  }
+
+  const toLeft = Math.abs(px - left)
+  const toRight = Math.abs(right - px)
+  const toTop = Math.abs(py - top)
+  const toBottom = Math.abs(bottom - py)
+  const edge = Math.min(toLeft, toRight, toTop, toBottom)
+
+  if (edge === toLeft) return { x: left, y: py }
+  if (edge === toRight) return { x: right, y: py }
+  if (edge === toTop) return { x: px, y: top }
+  return { x: px, y: bottom }
+}
+
 export default function DesktopShell() {
   const stageRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(1)
@@ -164,6 +188,12 @@ export default function DesktopShell() {
           x: stageSize.width * 0.5,
           y: stageSize.height * 0.5
         }
+        const panelWidth = Math.min(420, stageSize.width * 0.42)
+        const panelHeight = Math.min(320, stageSize.height * 0.38)
+        const panelLeft = (stageSize.width - panelWidth) * 0.5
+        const panelTop = (stageSize.height - panelHeight) * 0.5
+        const panelRight = panelLeft + panelWidth
+        const panelBottom = panelTop + panelHeight
 
         for (let i = 0; i < next.length; i += 1) {
           const a = next[i]
@@ -247,8 +277,23 @@ export default function DesktopShell() {
           w.vx += ux * pulse
           w.vy += uy * pulse
 
-          w.vx *= 0.91
-          w.vy *= 0.91
+          const nearest = nearestPointOnRectBoundary(cx, cy, panelLeft, panelTop, panelRight, panelBottom)
+          const panelDx = nearest.x - cx
+          const panelDy = nearest.y - cy
+          const panelDist = Math.hypot(panelDx, panelDy)
+
+          if (panelDist < CENTER_PANEL_STICK_RANGE) {
+            const stick = 1 - panelDist / CENTER_PANEL_STICK_RANGE
+            w.vx += panelDx * CENTER_PANEL_STICK_PULL * stick
+            w.vy += panelDy * CENTER_PANEL_STICK_PULL * stick
+            const damping = 0.91 - (0.91 - CENTER_PANEL_MAX_DAMPING) * stick
+            w.vx *= damping
+            w.vy *= damping
+          } else {
+            w.vx *= 0.91
+            w.vy *= 0.91
+          }
+
           w.x = clamp(w.x + w.vx, 0, Math.max(0, stageSize.width - w.width))
           w.y = clamp(w.y + w.vy, 0, Math.max(0, stageSize.height - w.height))
         }
