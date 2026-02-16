@@ -19,7 +19,7 @@ body {
   min-height: 100%;
   font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
   color: var(--ink);
-  background: #000;
+  background: rgb(220, 220, 220);
 }
 
 .desktop-shell {
@@ -30,7 +30,7 @@ body {
 .stage {
   position: relative;
   min-height: 100vh;
-  background: #000;
+  background: rgb(220, 220, 220);
   overflow: hidden;
 }
 
@@ -52,7 +52,7 @@ body {
   z-index: 1;
   border-radius: 0;
   border: 0;
-  background: #1f2937;
+  background: #fff;
   box-shadow: none;
   padding: 0;
   overflow: visible;
@@ -73,6 +73,11 @@ body {
 .window.is-selected {
   outline: 2px solid rgba(255, 255, 255, 0.65);
   outline-offset: -2px;
+  background: #fff !important;
+}
+
+.window.is-selected::before {
+  border-color: #000;
 }
 
 .content {
@@ -108,8 +113,8 @@ body {
   border-radius: 4px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #f8fbff;
-  background: rgba(0, 0, 0, 0.42);
+  color: #f00;
+  background: none;
 }
 
 .resize {
@@ -135,31 +140,29 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0;
   z-index: 30;
-  overflow: hidden;
+  overflow: visible;
   backdrop-filter: blur(4px);
   font-family: inherit;
   box-shadow: none;
 }
 
-.repo-head {
-  height: 36px;
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  font-family: inherit;
-}
-
-.repo-head a {
-  color: #d9f7ff;
-  text-decoration: none;
+.repo-panel::before {
+  content: "";
+  position: absolute;
+  left: -5%;
+  top: -5%;
+  width: 110%;
+  height: 110%;
+  border: 0;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .repo-panel iframe {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  height: calc(100% - 36px);
+  height: 100%;
   border: 0;
   background: #0b0f14;
 }

@@ -22,7 +22,7 @@ export default function P5Background() {
           const width = Math.max(1, Math.floor(el.clientWidth))
           const height = Math.max(1, Math.floor(el.clientHeight))
           p.resizeCanvas(width, height, true)
-          p.background(0)
+          p.background(220)
         }
 
         p.setup = () => {
@@ -30,7 +30,7 @@ export default function P5Background() {
           if (!el) return
           p.createCanvas(el.clientWidth, el.clientHeight).parent(el)
           p.noLoop()
-          p.background(0)
+          p.background(220)
         }
 
         p.windowResized = paint

@@ -29,12 +29,18 @@ type DragState = {
   startWidth: number
 }
 
-const BASE_SIZE = 360
 const MIN_SIZE = 16
 const MAX_INITIAL_FACES = 4
-const CENTER_PANEL_STICK_RANGE = 92
-const CENTER_PANEL_STICK_PULL = 0.015
-const CENTER_PANEL_MAX_DAMPING = 0.72
+const RED_BORDER_OUTSET_RATIO = 0.05
+const MIN_SQUARE_SIZE = 100
+const MAX_SQUARE_SIZE = 200
+const CENTER_PANEL_STICK_RANGE = 56
+const CENTER_PANEL_STICK_PULL = 0.006
+const CENTER_PANEL_MAX_DAMPING = 0.9
+const PANEL_SURFACE_SNAP_DISTANCE = 2
+const DRIFT_ACCEL = 0.02
+const DRIFT_DAMPING = 0.97
+const MAX_DRIFT_SPEED = 1.4
 const SPAWN_RATIO_PERCENT = clamp(
   Number(process.env.NEXT_PUBLIC_SPAWN_RATIO_PERCENT ?? "100"),
   1,
@@ -49,17 +55,12 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }
 
-function randomScale() {
-  return Math.floor(Math.random() * 100) + 1
+function pickSquareColor() {
+  return "rgb(255, 255, 255)"
 }
 
-function sizeFromScale(scale: number) {
-  return Math.max(MIN_SIZE, Math.round(BASE_SIZE * (scale / 100)))
-}
-
-function pickGreyscale() {
-  const value = Math.floor(Math.random() * 256)
-  return `rgb(${value}, ${value}, ${value})`
+function randomSquareSize() {
+  return Math.floor(Math.random() * (MAX_SQUARE_SIZE - MIN_SQUARE_SIZE + 1)) + MIN_SQUARE_SIZE
 }
 
 function hashToPhase(input: string) {
@@ -71,34 +72,12 @@ function hashToPhase(input: string) {
   return ((hash >>> 0) % 360) * (Math.PI / 180)
 }
 
-function lotusSpiralPosition(index: number, stageWidth: number, stageHeight: number, width: number, height: number) {
-  const golden = 2.399963229728653
-  const theta = index * golden
-  const radialStep = 34
-  const radius = 24 + radialStep * Math.sqrt(index)
-  const centerX = stageWidth / 2
-  const centerY = stageHeight / 2
-
-  const px = centerX + Math.cos(theta) * radius
-  const py = centerY + Math.sin(theta) * radius * 0.82
-
+function randomCanvasPosition(stageWidth: number, stageHeight: number, size: number) {
+  const maxX = Math.max(0, stageWidth - size)
+  const maxY = Math.max(0, stageHeight - size)
   return {
-    x: clamp(Math.round(px - width / 2), 0, Math.max(0, stageWidth - width)),
-    y: clamp(Math.round(py - height / 2), 0, Math.max(0, stageHeight - height))
-  }
-}
-
-function ringPosition(index: number, count: number, stageWidth: number, stageHeight: number, size: number) {
-  const cx = stageWidth / 2
-  const cy = stageHeight / 2
-  const r = Math.max(80, Math.min(stageWidth, stageHeight) * 0.2)
-  const theta = (index / Math.max(1, count)) * Math.PI * 2 - Math.PI / 2
-  const x = cx + Math.cos(theta) * r - size / 2
-  const y = cy + Math.sin(theta) * r - size / 2
-
-  return {
-    x: clamp(Math.round(x), 0, Math.max(0, stageWidth - size)),
-    y: clamp(Math.round(y), 0, Math.max(0, stageHeight - size))
+    x: Math.round(Math.random() * maxX),
+    y: Math.round(Math.random() * maxY)
   }
 }
 
@@ -123,6 +102,75 @@ function nearestPointOnRectBoundary(px: number, py: number, left: number, top: n
   return { x: px, y: bottom }
 }
 
+function resolveRedBoundsPanelCollision(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  panelLeft: number,
+  panelTop: number,
+  panelRight: number,
+  panelBottom: number
+) {
+  const insetX = width * RED_BORDER_OUTSET_RATIO
+  const insetY = height * RED_BORDER_OUTSET_RATIO
+  const redLeft = x - insetX
+  const redTop = y - insetY
+  const redRight = x + width + insetX
+  const redBottom = y + height + insetY
+
+  const overlaps = redLeft < panelRight && redRight > panelLeft && redTop < panelBottom && redBottom > panelTop
+  if (!overlaps) {
+    return { x, y, hitX: false, hitY: false }
+  }
+
+  const pushLeft = redRight - panelLeft
+  const pushRight = panelRight - redLeft
+  const pushUp = redBottom - panelTop
+  const pushDown = panelBottom - redTop
+  const minPush = Math.min(pushLeft, pushRight, pushUp, pushDown)
+
+  if (minPush === pushLeft) return { x: x - pushLeft, y, hitX: true, hitY: false }
+  if (minPush === pushRight) return { x: x + pushRight, y, hitX: true, hitY: false }
+  if (minPush === pushUp) return { x, y: y - pushUp, hitX: false, hitY: true }
+  return { x, y: y + pushDown, hitX: false, hitY: true }
+}
+
+function lockToPanelSurface(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  panelLeft: number,
+  panelTop: number,
+  panelRight: number,
+  panelBottom: number
+) {
+  const insetX = width * RED_BORDER_OUTSET_RATIO
+  const insetY = height * RED_BORDER_OUTSET_RATIO
+  const redLeft = x - insetX
+  const redTop = y - insetY
+  const redRight = x + width + insetX
+  const redBottom = y + height + insetY
+  const overlapsY = redBottom > panelTop && redTop < panelBottom
+  const overlapsX = redRight > panelLeft && redLeft < panelRight
+
+  if (overlapsY && Math.abs(redRight - panelLeft) <= PANEL_SURFACE_SNAP_DISTANCE) {
+    return { x: panelLeft - width - insetX, y, lockX: true, lockY: false }
+  }
+  if (overlapsY && Math.abs(redLeft - panelRight) <= PANEL_SURFACE_SNAP_DISTANCE) {
+    return { x: panelRight + insetX, y, lockX: true, lockY: false }
+  }
+  if (overlapsX && Math.abs(redBottom - panelTop) <= PANEL_SURFACE_SNAP_DISTANCE) {
+    return { x, y: panelTop - height - insetY, lockX: false, lockY: true }
+  }
+  if (overlapsX && Math.abs(redTop - panelBottom) <= PANEL_SURFACE_SNAP_DISTANCE) {
+    return { x, y: panelBottom + insetY, lockX: false, lockY: true }
+  }
+
+  return { x, y, lockX: false, lockY: false }
+}
+
 export default function DesktopShell() {
   const stageRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(1)
@@ -139,24 +187,24 @@ export default function DesktopShell() {
     return Math.max(1, Math.round(base * (SPAWN_RATIO_PERCENT / 100)))
   }
 
-  function buildWindow(index: number): WindowItem {
+  function buildWindow(index: number, color: string = "rgb(255, 255, 255)"): WindowItem {
     const app = APP_REGISTRY[index % APP_REGISTRY.length]
-    const scale = randomScale()
-    const size = sizeFromScale(scale)
-    const point = lotusSpiralPosition(index, stageSize.width, stageSize.height, size, size)
+    const title = app.id.toLowerCase()
+    const size = randomSquareSize()
+    const point = randomCanvasPosition(stageSize.width, stageSize.height, size)
 
     return {
       id: makeWindowId(),
-      appId: app.id.toLowerCase(),
-      title: app.id.toLowerCase(),
+      appId: title,
+      title,
       source: app.source,
       x: point.x,
       y: point.y,
       width: size,
       height: size,
-      color: pickGreyscale(),
-      vx: 0,
-      vy: 0,
+      color,
+      vx: (Math.random() - 0.5) * 0.6,
+      vy: (Math.random() - 0.5) * 0.6,
       zIndex: 1
     }
   }
@@ -184,32 +232,34 @@ export default function DesktopShell() {
 
         const activeId = interactionRef.current?.windowId ?? null
         const next = prev.map((w) => ({ ...w }))
-        const sun = {
-          x: stageSize.width * 0.5,
-          y: stageSize.height * 0.5
-        }
         const panelWidth = Math.min(420, stageSize.width * 0.42)
         const panelHeight = Math.min(320, stageSize.height * 0.38)
-        const panelLeft = (stageSize.width - panelWidth) * 0.5
-        const panelTop = (stageSize.height - panelHeight) * 0.5
-        const panelRight = panelLeft + panelWidth
-        const panelBottom = panelTop + panelHeight
+        const panelLeftRaw = (stageSize.width - panelWidth) * 0.5
+        const panelTopRaw = (stageSize.height - panelHeight) * 0.5
+        const panelOutsetX = panelWidth * RED_BORDER_OUTSET_RATIO
+        const panelOutsetY = panelHeight * RED_BORDER_OUTSET_RATIO
+        const panelLeft = panelLeftRaw - panelOutsetX
+        const panelTop = panelTopRaw - panelOutsetY
+        const panelRight = panelLeftRaw + panelWidth + panelOutsetX
+        const panelBottom = panelTopRaw + panelHeight + panelOutsetY
 
         for (let i = 0; i < next.length; i += 1) {
           const a = next[i]
           const aActive = a.id === activeId
-          const acx = a.x + a.width / 2
-          const acy = a.y + a.height / 2
 
           for (let j = i + 1; j < next.length; j += 1) {
             const b = next[j]
             const bActive = b.id === activeId
+            const acx = a.x + a.width / 2
+            const acy = a.y + a.height / 2
             const bcx = b.x + b.width / 2
             const bcy = b.y + b.height / 2
             const dx = bcx - acx
             const dy = bcy - acy
             const dist = Math.max(1, Math.hypot(dx, dy))
-            const minGap = (a.width + b.width) / 2 + 4
+            const redAWidth = a.width * (1 + RED_BORDER_OUTSET_RATIO * 2)
+            const redBWidth = b.width * (1 + RED_BORDER_OUTSET_RATIO * 2)
+            const minGap = (redAWidth + redBWidth) / 2
 
             if (dist < minGap) {
               const repel = (minGap - dist) * 0.015
@@ -224,7 +274,7 @@ export default function DesktopShell() {
                 b.vy += uy * repel
               }
             } else {
-              const attract = Math.min(0.06, (dist - minGap) * 0.0009)
+              const attract = Math.min(0.02, (dist - minGap) * 0.0003)
               const ux = dx / dist
               const uy = dy / dist
               if (!aActive) {
@@ -249,6 +299,56 @@ export default function DesktopShell() {
                 b.vy += (snapY - bcy) * 0.0045
               }
             }
+
+            // Keep pair overlap under 50% of the smaller square size.
+            const aOutsetX = a.width * RED_BORDER_OUTSET_RATIO
+            const aOutsetY = a.height * RED_BORDER_OUTSET_RATIO
+            const bOutsetX = b.width * RED_BORDER_OUTSET_RATIO
+            const bOutsetY = b.height * RED_BORDER_OUTSET_RATIO
+            const ax1 = a.x - aOutsetX
+            const ay1 = a.y - aOutsetY
+            const ax2 = a.x + a.width + aOutsetX
+            const ay2 = a.y + a.height + aOutsetY
+            const bx1 = b.x - bOutsetX
+            const by1 = b.y - bOutsetY
+            const bx2 = b.x + b.width + bOutsetX
+            const by2 = b.y + b.height + bOutsetY
+            const overlapX = Math.min(ax2, bx2) - Math.max(ax1, bx1)
+            const overlapY = Math.min(ay2, by2) - Math.max(ay1, by1)
+
+            if (overlapX > 0 && overlapY > 0) {
+              const allowedX = Math.min(ax2 - ax1, bx2 - bx1) * 0.5
+              const allowedY = Math.min(ay2 - ay1, by2 - by1) * 0.5
+              const excessX = overlapX - allowedX
+              const excessY = overlapY - allowedY
+
+              if (excessX > 0 || excessY > 0) {
+                const separateX = excessX >= excessY
+                if (separateX) {
+                  const shift = Math.max(0, excessX) + 0.5
+                  const dirA = acx <= bcx ? -1 : 1
+                  if (aActive && !bActive) {
+                    b.x -= dirA * shift
+                  } else if (!aActive && bActive) {
+                    a.x += dirA * shift
+                  } else {
+                    a.x += dirA * (shift * 0.5)
+                    b.x -= dirA * (shift * 0.5)
+                  }
+                } else {
+                  const shift = Math.max(0, excessY) + 0.5
+                  const dirA = acy <= bcy ? -1 : 1
+                  if (aActive && !bActive) {
+                    b.y -= dirA * shift
+                  } else if (!aActive && bActive) {
+                    a.y += dirA * shift
+                  } else {
+                    a.y += dirA * (shift * 0.5)
+                    b.y -= dirA * (shift * 0.5)
+                  }
+                }
+              }
+            }
           }
         }
 
@@ -258,24 +358,9 @@ export default function DesktopShell() {
           const cx = w.x + w.width / 2
           const cy = w.y + w.height / 2
           const p = hashToPhase(w.id)
-          const dx = cx - sun.x
-          const dy = cy - sun.y
-          const dist = Math.max(1, Math.hypot(dx, dy))
-          const ux = dx / dist
-          const uy = dy / dist
-          const ringIndex = (Math.floor((p / (Math.PI * 2)) * 7) + 7) % 7
-          const targetRadius = 140 + ringIndex * 34
-          const radialError = dist - targetRadius
-          const spin = Math.sin(p) >= 0 ? 1 : -1
-          const swirlStrength = 0.42 / (1 + dist * 0.012)
-          const pulse = Math.sin(t * 1.4 + p) * 0.02
-
-          w.vx += -ux * radialError * 0.012
-          w.vy += -uy * radialError * 0.012
-          w.vx += -uy * swirlStrength * spin
-          w.vy += ux * swirlStrength * spin
-          w.vx += ux * pulse
-          w.vy += uy * pulse
+          const driftAngle = p + t * 0.35
+          w.vx += Math.cos(driftAngle) * DRIFT_ACCEL
+          w.vy += Math.sin(driftAngle) * DRIFT_ACCEL
 
           const nearest = nearestPointOnRectBoundary(cx, cy, panelLeft, panelTop, panelRight, panelBottom)
           const panelDx = nearest.x - cx
@@ -289,13 +374,35 @@ export default function DesktopShell() {
             const damping = 0.91 - (0.91 - CENTER_PANEL_MAX_DAMPING) * stick
             w.vx *= damping
             w.vy *= damping
-          } else {
-            w.vx *= 0.91
-            w.vy *= 0.91
           }
+          w.vx *= DRIFT_DAMPING
+          w.vy *= DRIFT_DAMPING
+          w.vx = clamp(w.vx, -MAX_DRIFT_SPEED, MAX_DRIFT_SPEED)
+          w.vy = clamp(w.vy, -MAX_DRIFT_SPEED, MAX_DRIFT_SPEED)
 
-          w.x = clamp(w.x + w.vx, 0, Math.max(0, stageSize.width - w.width))
-          w.y = clamp(w.y + w.vy, 0, Math.max(0, stageSize.height - w.height))
+          const nextX = clamp(w.x + w.vx, 0, Math.max(0, stageSize.width - w.width))
+          const nextY = clamp(w.y + w.vy, 0, Math.max(0, stageSize.height - w.height))
+          const resolved = resolveRedBoundsPanelCollision(
+            nextX,
+            nextY,
+            w.width,
+            w.height,
+            panelLeft,
+            panelTop,
+            panelRight,
+            panelBottom
+          )
+
+          w.x = clamp(resolved.x, 0, Math.max(0, stageSize.width - w.width))
+          w.y = clamp(resolved.y, 0, Math.max(0, stageSize.height - w.height))
+          if (resolved.hitX) w.vx = 0
+          if (resolved.hitY) w.vy = 0
+
+          const locked = lockToPanelSurface(w.x, w.y, w.width, w.height, panelLeft, panelTop, panelRight, panelBottom)
+          w.x = clamp(locked.x, 0, Math.max(0, stageSize.width - w.width))
+          w.y = clamp(locked.y, 0, Math.max(0, stageSize.height - w.height))
+          if (locked.lockX) w.vx = 0
+          if (locked.lockY) w.vy = 0
         }
 
         return next
@@ -315,7 +422,7 @@ export default function DesktopShell() {
       const next = [...prev]
       for (let i = 0; i < batch; i += 1) {
         const index = spawnCountRef.current
-        const created = buildWindow(index)
+        const created = buildWindow(index, pickSquareColor())
         spawnCountRef.current += 1
         nextZRef.current += 1
         next.push({ ...created, zIndex: nextZRef.current })
@@ -330,9 +437,8 @@ export default function DesktopShell() {
 
     const seeded: WindowItem[] = []
     for (let i = 0; i < count; i += 1) {
-      const seededWindow = buildWindow(i)
-      const size = seededWindow.width
-      const point = ringPosition(i, count, stageSize.width, stageSize.height, size)
+      const seededWindow = buildWindow(i, pickSquareColor())
+      const point = randomCanvasPosition(stageSize.width, stageSize.height, seededWindow.width)
       seeded.push({
         ...seededWindow,
         x: point.x,
@@ -393,10 +499,33 @@ export default function DesktopShell() {
         if (w.id !== active.windowId) return w
 
         if (active.type === "drag") {
+          const panelWidth = Math.min(420, stageSize.width * 0.42)
+          const panelHeight = Math.min(320, stageSize.height * 0.38)
+          const panelLeftRaw = (stageSize.width - panelWidth) * 0.5
+          const panelTopRaw = (stageSize.height - panelHeight) * 0.5
+          const panelOutsetX = panelWidth * RED_BORDER_OUTSET_RATIO
+          const panelOutsetY = panelHeight * RED_BORDER_OUTSET_RATIO
+          const panelLeft = panelLeftRaw - panelOutsetX
+          const panelTop = panelTopRaw - panelOutsetY
+          const panelRight = panelLeftRaw + panelWidth + panelOutsetX
+          const panelBottom = panelTopRaw + panelHeight + panelOutsetY
+          const nextX = clamp(active.startX + deltaX, 0, Math.max(0, stageSize.width - w.width))
+          const nextY = clamp(active.startY + deltaY, 0, Math.max(0, stageSize.height - w.height))
+          const resolved = resolveRedBoundsPanelCollision(
+            nextX,
+            nextY,
+            w.width,
+            w.height,
+            panelLeft,
+            panelTop,
+            panelRight,
+            panelBottom
+          )
+
           return {
             ...w,
-            x: clamp(active.startX + deltaX, 0, Math.max(0, stageSize.width - w.width)),
-            y: clamp(active.startY + deltaY, 0, Math.max(0, stageSize.height - w.height)),
+            x: clamp(resolved.x, 0, Math.max(0, stageSize.width - w.width)),
+            y: clamp(resolved.y, 0, Math.max(0, stageSize.height - w.height)),
             vx: 0,
             vy: 0
           }
@@ -449,7 +578,7 @@ export default function DesktopShell() {
                 width: `${windowItem.width}px`,
                 height: `${windowItem.height}px`,
                 zIndex: windowItem.zIndex,
-                background: windowItem.color
+                background: selectedId === windowItem.id ? "#000" : windowItem.color
               }}
               onPointerEnter={() => setHoveredId(windowItem.id)}
               onPointerLeave={() => setHoveredId((current) => (current === windowItem.id ? null : current))}
@@ -468,7 +597,7 @@ export default function DesktopShell() {
                 }}
               >
                 <div className="drag-zone" data-dragzone="1" />
-                {highlighted ? <span className="face-id">{windowItem.appId}</span> : null}
+                <span className="face-id">{windowItem.appId}</span>
                 <button
                   type="button"
                   className="resize"
@@ -482,12 +611,6 @@ export default function DesktopShell() {
 
         {selectedWindow ? (
           <aside className="repo-panel" aria-label="Selected face preview">
-            <div className="repo-head">
-              <span>{selectedWindow.title}</span>
-              <a href={selectedWindow.source} target="_blank" rel="noreferrer">
-                Open
-              </a>
-            </div>
             <iframe title={`${selectedWindow.title} preview`} src={selectedWindow.source} loading="lazy" />
           </aside>
         ) : null}
