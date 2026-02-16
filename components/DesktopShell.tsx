@@ -16,6 +16,7 @@ type WindowItem = {
   color: string
   vx: number
   vy: number
+  driftEnergy: number
   zIndex: number
 }
 
@@ -39,7 +40,11 @@ const CENTER_PANEL_STICK_PULL = 0.006
 const CENTER_PANEL_MAX_DAMPING = 0.9
 const PANEL_SURFACE_SNAP_DISTANCE = 2
 const DRIFT_ACCEL = 0.02
-const DRIFT_DAMPING = 0.97
+const DRIFT_EASE_DECAY = 0.996
+const DRIFT_MIN_ENERGY = 0.08
+const DRIFT_BASE_DAMPING = 0.985
+const DRIFT_SPEED_FRICTION = 0.02
+const DRIFT_MIN_DAMPING = 0.94
 const MAX_DRIFT_SPEED = 1.4
 const SPAWN_RATIO_PERCENT = clamp(
   Number(process.env.NEXT_PUBLIC_SPAWN_RATIO_PERCENT ?? "100"),
@@ -59,8 +64,11 @@ function pickSquareColor() {
   return "rgb(255, 255, 255)"
 }
 
-function randomSquareSize() {
-  return Math.floor(Math.random() * (MAX_SQUARE_SIZE - MIN_SQUARE_SIZE + 1)) + MIN_SQUARE_SIZE
+function randomSquareSize(stageWidth: number, stageHeight: number) {
+  const viewportCap = Math.max(MIN_SIZE, Math.floor(Math.min(stageWidth, stageHeight) * 0.28))
+  const maxSize = clamp(viewportCap, MIN_SIZE, MAX_SQUARE_SIZE)
+  const minSize = Math.min(MIN_SQUARE_SIZE, maxSize)
+  return Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize
 }
 
 function hashToPhase(input: string) {
@@ -171,10 +179,23 @@ function lockToPanelSurface(
   return { x, y, lockX: false, lockY: false }
 }
 
+function getSquarePanelBounds(stageWidth: number, stageHeight: number) {
+  const panelSize = Math.min(420, stageWidth * 0.42, stageHeight * 0.42)
+  const panelLeftRaw = (stageWidth - panelSize) * 0.5
+  const panelTopRaw = (stageHeight - panelSize) * 0.5
+  const panelOutset = panelSize * RED_BORDER_OUTSET_RATIO
+
+  return {
+    panelLeft: panelLeftRaw - panelOutset,
+    panelTop: panelTopRaw - panelOutset,
+    panelRight: panelLeftRaw + panelSize + panelOutset,
+    panelBottom: panelTopRaw + panelSize + panelOutset
+  }
+}
+
 export default function DesktopShell() {
   const stageRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(1)
-  const spawnCountRef = useRef(0)
   const bootedRef = useRef(false)
   const interactionRef = useRef<DragState | null>(null)
 
@@ -190,7 +211,7 @@ export default function DesktopShell() {
   function buildWindow(index: number, color: string = "rgb(255, 255, 255)"): WindowItem {
     const app = APP_REGISTRY[index % APP_REGISTRY.length]
     const title = app.id.toLowerCase()
-    const size = randomSquareSize()
+    const size = randomSquareSize(stageSize.width, stageSize.height)
     const point = randomCanvasPosition(stageSize.width, stageSize.height, size)
 
     return {
@@ -205,6 +226,7 @@ export default function DesktopShell() {
       color,
       vx: (Math.random() - 0.5) * 0.6,
       vy: (Math.random() - 0.5) * 0.6,
+      driftEnergy: 1,
       zIndex: 1
     }
   }
@@ -232,16 +254,7 @@ export default function DesktopShell() {
 
         const activeId = interactionRef.current?.windowId ?? null
         const next = prev.map((w) => ({ ...w }))
-        const panelWidth = Math.min(420, stageSize.width * 0.42)
-        const panelHeight = Math.min(320, stageSize.height * 0.38)
-        const panelLeftRaw = (stageSize.width - panelWidth) * 0.5
-        const panelTopRaw = (stageSize.height - panelHeight) * 0.5
-        const panelOutsetX = panelWidth * RED_BORDER_OUTSET_RATIO
-        const panelOutsetY = panelHeight * RED_BORDER_OUTSET_RATIO
-        const panelLeft = panelLeftRaw - panelOutsetX
-        const panelTop = panelTopRaw - panelOutsetY
-        const panelRight = panelLeftRaw + panelWidth + panelOutsetX
-        const panelBottom = panelTopRaw + panelHeight + panelOutsetY
+        const { panelLeft, panelTop, panelRight, panelBottom } = getSquarePanelBounds(stageSize.width, stageSize.height)
 
         for (let i = 0; i < next.length; i += 1) {
           const a = next[i]
@@ -359,8 +372,9 @@ export default function DesktopShell() {
           const cy = w.y + w.height / 2
           const p = hashToPhase(w.id)
           const driftAngle = p + t * 0.35
-          w.vx += Math.cos(driftAngle) * DRIFT_ACCEL
-          w.vy += Math.sin(driftAngle) * DRIFT_ACCEL
+          w.driftEnergy = Math.max(DRIFT_MIN_ENERGY, w.driftEnergy * DRIFT_EASE_DECAY)
+          w.vx += Math.cos(driftAngle) * DRIFT_ACCEL * w.driftEnergy
+          w.vy += Math.sin(driftAngle) * DRIFT_ACCEL * w.driftEnergy
 
           const nearest = nearestPointOnRectBoundary(cx, cy, panelLeft, panelTop, panelRight, panelBottom)
           const panelDx = nearest.x - cx
@@ -375,8 +389,14 @@ export default function DesktopShell() {
             w.vx *= damping
             w.vy *= damping
           }
-          w.vx *= DRIFT_DAMPING
-          w.vy *= DRIFT_DAMPING
+          const speed = Math.hypot(w.vx, w.vy)
+          const frictionDamping = clamp(
+            DRIFT_BASE_DAMPING - speed * DRIFT_SPEED_FRICTION,
+            DRIFT_MIN_DAMPING,
+            DRIFT_BASE_DAMPING
+          )
+          w.vx *= frictionDamping
+          w.vy *= frictionDamping
           w.vx = clamp(w.vx, -MAX_DRIFT_SPEED, MAX_DRIFT_SPEED)
           w.vy = clamp(w.vy, -MAX_DRIFT_SPEED, MAX_DRIFT_SPEED)
 
@@ -415,22 +435,6 @@ export default function DesktopShell() {
     return () => window.cancelAnimationFrame(raf)
   }, [stageSize.width, stageSize.height])
 
-  function spawnBatch() {
-    if (APP_REGISTRY.length === 0) return
-    setWindows((prev) => {
-      const batch = spawnBatchCount(APP_REGISTRY.length)
-      const next = [...prev]
-      for (let i = 0; i < batch; i += 1) {
-        const index = spawnCountRef.current
-        const created = buildWindow(index, pickSquareColor())
-        spawnCountRef.current += 1
-        nextZRef.current += 1
-        next.push({ ...created, zIndex: nextZRef.current })
-      }
-      return next
-    })
-  }
-
   function seedInitialFour() {
     const count = Math.min(spawnBatchCount(MAX_INITIAL_FACES), APP_REGISTRY.length)
     if (count === 0) return
@@ -447,7 +451,6 @@ export default function DesktopShell() {
       })
     }
 
-    spawnCountRef.current = count
     nextZRef.current = count + 1
     setWindows(seeded)
     setSelectedId(seeded[0]?.id ?? null)
@@ -499,16 +502,7 @@ export default function DesktopShell() {
         if (w.id !== active.windowId) return w
 
         if (active.type === "drag") {
-          const panelWidth = Math.min(420, stageSize.width * 0.42)
-          const panelHeight = Math.min(320, stageSize.height * 0.38)
-          const panelLeftRaw = (stageSize.width - panelWidth) * 0.5
-          const panelTopRaw = (stageSize.height - panelHeight) * 0.5
-          const panelOutsetX = panelWidth * RED_BORDER_OUTSET_RATIO
-          const panelOutsetY = panelHeight * RED_BORDER_OUTSET_RATIO
-          const panelLeft = panelLeftRaw - panelOutsetX
-          const panelTop = panelTopRaw - panelOutsetY
-          const panelRight = panelLeftRaw + panelWidth + panelOutsetX
-          const panelBottom = panelTopRaw + panelHeight + panelOutsetY
+          const { panelLeft, panelTop, panelRight, panelBottom } = getSquarePanelBounds(stageSize.width, stageSize.height)
           const nextX = clamp(active.startX + deltaX, 0, Math.max(0, stageSize.width - w.width))
           const nextY = clamp(active.startY + deltaY, 0, Math.max(0, stageSize.height - w.height))
           const resolved = resolveRedBoundsPanelCollision(
@@ -559,11 +553,6 @@ export default function DesktopShell() {
         ref={stageRef}
         className="stage"
         aria-label="Window stage"
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) {
-            spawnBatch()
-          }
-        }}
       >
         <P5Background />
         {sortedWindows.map((windowItem) => {

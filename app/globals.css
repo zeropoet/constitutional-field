@@ -16,20 +16,25 @@
 html,
 body {
   margin: 0;
+  width: 100%;
   min-height: 100%;
+  height: 100dvh;
   font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
   color: var(--ink);
   background: rgb(220, 220, 220);
+  overflow: hidden;
 }
 
 .desktop-shell {
-  min-height: 100vh;
+  width: 100%;
+  height: 100dvh;
   padding: 0;
 }
 
 .stage {
   position: relative;
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
   background: rgb(220, 220, 220);
   overflow: hidden;
 }
@@ -134,8 +139,11 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(420px, 42vw);
-  height: min(320px, 38vh);
+  width: min(420px, 42vw, 42dvh);
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100dvh - 1rem);
+  height: auto;
+  aspect-ratio: 1 / 1;
   background: rgba(5, 10, 16, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0;
@@ -159,6 +167,7 @@ body {
 }
 
 .repo-panel iframe {
+  display: block;
   position: relative;
   z-index: 1;
   width: 100%;
@@ -169,11 +178,4 @@ body {
 
 nextjs-portal {
   display: none !important;
-}
-
-@media (max-width: 900px) {
-  .window {
-    width: calc(100vw - 1rem) !important;
-    left: 0 !important;
-  }
 }
