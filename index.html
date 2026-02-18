@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Import Modules Grid</title>
+  <title>Import Modules</title>
   <style>
     :root {
       --stage: rgb(205, 205, 205);
@@ -15,7 +15,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
+      font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       color: var(--text);
       background: var(--stage);
       overflow: hidden;
@@ -45,7 +45,6 @@
       font-size: clamp(20px, 2.2vw, 32px);
       font-weight: 700;
       letter-spacing: 0.04em;
-      text-transform: uppercase;
       color: #fff;
       width: var(--grid-outer);
       justify-self: center;
@@ -57,7 +56,11 @@
       inset-inline-start: max(env(safe-area-inset-left), 0.75rem);
       inset-block-start: max(env(safe-area-inset-top), 0.75rem);
       z-index: 3;
-      pointer-events: none;
+      pointer-events: auto;
+    }
+
+    .brand-link {
+      display: inline-block;
     }
 
     .logo {
@@ -119,10 +122,12 @@
 </head>
 <body>
   <div class="brand" aria-hidden="true">
-    <img class="logo" src="./logo.svg" alt="">
+    <a class="brand-link" href="https://zeropoet.xyz" target="_blank" rel="noopener noreferrer" aria-label="Visit zeropoet.xyz">
+      <img class="logo" src="./logo.svg" alt="">
+    </a>
   </div>
   <main class="shell">
-    <h1 class="title">Imported Modules</h1>
+    <h1 class="title">imported-modules</h1>
     <section class="grid" id="grid"></section>
   </main>
 
