@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Import Modules Grid</title>
+  <style>
+    :root {
+      --stage: rgb(205, 205, 205);
+      --text: #fff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
+      color: var(--text);
+      background: var(--stage);
+      overflow: hidden;
+    }
+
+    .shell {
+      --gap: 20px;
+      --cell: calc(min(calc((100cqw - (var(--gap) * 2)) / 3), calc((100cqh - (var(--gap) * 2)) / 3)) * 0.9);
+      --stroke-expand: 0px;
+      --grid-outer: calc((var(--cell) * 3) + (var(--gap) * 2) + (var(--stroke-expand) * 2));
+      --frame-size: min(calc(100vw - 60px), calc(100vh - 60px));
+      padding: 6px 16px 16px;
+      border: 1px solid #fff;
+      border-radius: 0;
+      width: var(--frame-size);
+      height: var(--frame-size);
+      aspect-ratio: 1 / 1;
+      margin: 40px auto;
+      container-type: size;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+
+    .title {
+      margin: 15px 0 0;
+      font-size: clamp(20px, 2.2vw, 32px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #fff;
+      width: var(--grid-outer);
+      justify-self: center;
+      text-align: right;
+    }
+
+    .brand {
+      position: fixed;
+      inset-inline-start: max(env(safe-area-inset-left), 0.75rem);
+      inset-block-start: max(env(safe-area-inset-top), 0.75rem);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .logo {
+      inline-size: clamp(45px, 7.875vw, 90px);
+      block-size: clamp(45px, 7.875vw, 90px);
+      display: block;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+
+    @media (max-width: 900px) {
+      .brand {
+        z-index: 3;
+        opacity: 0.8;
+      }
+
+      .logo {
+        inline-size: clamp(27px, 6.1875vw, 45px);
+        block-size: clamp(27px, 6.1875vw, 45px);
+      }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, var(--cell));
+      grid-template-rows: repeat(3, var(--cell));
+      justify-content: start;
+      align-content: center;
+      gap: var(--gap);
+      width: var(--grid-outer);
+      padding: var(--stroke-expand);
+      margin: 0 auto;
+      min-height: 0;
+    }
+
+    .tile {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .tile::before {
+      content: "";
+      position: absolute;
+      inset: calc(var(--stroke-expand) * -1);
+      border: 1px solid #fff;
+      pointer-events: none;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+      background: #0b0f14;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="brand" aria-hidden="true">
+    <img class="logo" src="./logo.svg" alt="">
+  </div>
+  <main class="shell">
+    <h1 class="title">Imported Modules</h1>
+    <section class="grid" id="grid"></section>
+  </main>
+
+  <script src="./modules.js"></script>
+  <script src="./main.js"></script>
+</body>
+</html>
