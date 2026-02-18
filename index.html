@@ -8,6 +8,7 @@
     :root {
       --stage: #fff;
       --text: rgb(205, 205, 205);
+      --space-2: clamp(0.75rem, 0.5rem + 1vw, 1.5rem);
     }
 
     * { box-sizing: border-box; }
@@ -41,8 +42,8 @@
 
     .brand {
       position: fixed;
-      inset-inline-start: max(env(safe-area-inset-left), 0.75rem);
-      inset-block-start: max(env(safe-area-inset-top), 0.75rem);
+      inset-inline-start: max(env(safe-area-inset-left), var(--space-2));
+      inset-block-start: max(env(safe-area-inset-top), var(--space-2));
       z-index: 3;
       pointer-events: auto;
     }
