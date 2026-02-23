@@ -1,259 +1,154 @@
 # Constitutional Field
 
-*A bounded recursive ecosystem operating within a deterministic constitutional manifold.*
+Constitutional Field is a deterministic, browser-based simulation of constrained emergence.
 
----
+The active runtime identity is:
+- **Constitution:** `ØVEL x Void Architecture`
+- **Invariant:** `ØVEL`
 
-## Overview
+The law stays fixed; dynamic invariants compete within it.
 
-Constitutional Field is a generative simulation engine for studying how dynamic structures emerge, compete, stabilize, and dissolve within immutable constraint.
+## What It Does
 
-It extends the Constitutional Sigil from a static manifold into a living laboratory.
+- Simulates probes, basins, and dynamic invariants inside a bounded field.
+- Tracks births, promotions, suppression, starvation, and deaths.
+- Enforces budgeted energy competition under alignment control.
+- Renders a layered visual system (field, probes, trails, scaffold memory, invariants, axes).
+- Exposes live HUD panels: Constitution, Registry, Legend, Metrics.
 
-Where the Sigil defines the law,
-Constitutional Field studies what attempts to persist inside it.
+## Tech Stack
 
-This is not a particle toy.
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Canvas 2D rendering
 
-It is a structural instrument for recursive invariant formation under scarcity and constraint.
+## Run Locally
 
----
+```bash
+npm install
+npm run dev
+```
 
-## Constitutional Substrate
+Open `http://localhost:3000`.
 
-At its foundation lies a seeded, deterministic constitutional manifold:
+Production build:
 
-[
-F_{seed}
-]
+```bash
+npm run build
+npm run start
+```
 
-The seed defines:
+## Runtime Model
 
-* Harmonic structure
-* Angular symmetry
-* Anchor curvature influence
-* Boundary domain
+The simulation state is centralized in `lib/state/types.ts` and created by `createSimulationState()` in `lib/sim/engine.ts`.
 
-For a given seed:
+Core state domains:
+- `anchors`: fixed constitutional anchors (`B`, `Ci`)
+- `invariants`: all entities (anchors + dynamic invariants)
+- `probes`: moving particles used for basin detection and intake pressure
+- `basins`: clustered persistence zones from probe density
+- `globals`: tick, seed, budget, viewport/world bounds, constitution hash
+- `registry`: identity and lifecycle history for each invariant
+- `metrics`: per-tick system diagnostics
+- `events`: typed lifecycle/system events
 
-* The constitutional geometry is reproducible
-* The structure is archivable
-* The law does not drift during runtime
+## Operator Pipeline
 
-The constitution remains fixed.
+Operators are composable laws, not UI modes.
 
-Only dynamic structures evolve.
+- Operator contract: `lib/operators/types.ts`
+- Composition: `lib/operators/compose.ts`
+- Presets: `lib/operators/stagePresets.ts`
 
----
+Current app runtime always uses the final preset (`stagePresets[last]`) from `app/page.tsx`, while stages remain available as compositional structure in code.
 
-## Completed Development Stages
+Major operators:
+- Closure (anchors + boundary law)
+- Oscillation (energy field enabled)
+- Basin detection (probe dynamics + clustering)
+- Emergent promotion (basin -> dynamic invariant)
+- Competitive ecosystem (local suppression and decay)
+- Selection pressure (global budget distribution)
+- Budget regulator (alignment-informed feedback control)
 
-The engine has progressed through five implemented structural stages:
+## HUD Panels
 
-### Stage 1 — Closure
+- **Constitution**: identity, seed replay/copy, tick, event count
+- **Registry**: top-energy invariants with age phase + bars
+- **Legend**: visual schema for all rendered symbols
+- **Metrics**: alignment score + key diagnostics
 
-The field is defined over a finite circular domain.
+All panels are bottom-docked dropdowns in `app/page.tsx` and styled in `app/globals.css`.
 
-Boundary conditions are enforced.
+## Metrics
 
-The system is closed and bounded.
+Computed in `lib/metrics/index.ts`:
+- Total Energy
+- Budget
+- Conserved Delta (`totalEnergy - budget`)
+- Living Invariants
+- Entropy Spread
+- Dominance (top-k)
+- Basin Stability
+- Alignment Score
 
----
+Alignment classification and control profile are in `lib/alignment/controller.ts`.
 
-### Stage 2 — Oscillating Energy
+## Events and Registry
 
-A smooth, bounded oscillating energy field modulates environmental forcing:
+Event types are defined in `lib/events/types.ts` and emitted during operator execution.
 
-[
-E(r,\theta,t)
-]
+Registry tracking (`lib/invariants/registry.ts`) stores:
+- identity and lineage links
+- birth/death ticks
+- sampled energy and position histories
+- peak strength
+- territory outcomes (wins/kills)
 
-The field evolves temporally without breaking structural closure.
+## Constraints
 
----
+Validation is run each tick in `lib/constraints/validate.ts`.
 
-### Stage 3 — Basin Detection
+Checks include:
+- bounded domain
+- finite numeric values
+- finite non-negative budget
+- constitution hash immutability
 
-Local curvature wells are detected dynamically.
+Violations are surfaced as suppression events.
 
-Basins emerge from harmonic structure and anchor interaction.
+## Rendering Notes
 
-These basins form the substrate for invariant stabilization.
+Canvas rendering lives in `components/Canvas.tsx` and includes:
+- full-window field raster
+- red/white center XY axis
+- probe heads + persistent white trails
+- secondary scaffold network from remembered trail points
+- basin density circles
+- anchor/dynamic invariant glyphs and labels
 
----
+## Primary Tuning Knobs
 
-### Stage 4 — Emergent Promotion
+Most frequent tuning points:
+- `initialBudget` in `lib/sim/engine.ts`
+- `targetProbes`, `MAX_PROBE_TRAIL_POINTS`, respawn radius in `lib/operators/stagePresets.ts`
+- promotion thresholds (`basin.frames`, `basin.count`, `maxInvariants`) in `lib/operators/stagePresets.ts`
+- regulator gains and thresholds in `lib/alignment/controller.ts` and `budgetRegulatorOperator`
+- trail falloff / scaffold constants / visual force radii in `components/Canvas.tsx`
 
-Regions of sustained energy accumulation promote dynamic invariants.
+## Documentation
 
-Invariant formation is not injected.
-It emerges from basin persistence.
+- `docs/operators.md`
+- `docs/stages.md`
+- `docs/metrics.md`
 
-Promotion is conditional, not arbitrary.
+## Repository Hygiene
 
----
+Editor artifacts are intentionally ignored (for IDE-free workflow), including:
+- `.idea/`
+- `*.iml`
 
-### Stage 5 — Competitive Ecosystem & Selection Pressure
+## License
 
-Dynamic invariants operate under:
-
-* Finite global energy budget
-* Territorial suppression
-* Nonlinear growth constraints
-* Decay under scarcity
-
-Competition is structural.
-
-No invariant has infinite growth potential.
-
-Selection pressure is enforced globally.
-
----
-
-## Architectural Layers
-
-### Layer 0 — Absolute Anchors
-
-Fixed invariants ( A_i ):
-
-[
-\frac{dA_i}{dt} = 0
-]
-
-They:
-
-* Do not move
-* Do not decay
-* Permanently shape curvature
-
-They represent constitutional constraint.
-
----
-
-### Layer 1 — Dynamic Invariants (Single Species)
-
-Dynamic invariants ( I_j ) evolve according to:
-
-**Gradient Motion**
-[
-\frac{d\mathbf{x}_j}{dt} = -\nabla E(\mathbf{x}_j, t)
-]
-
-**Energy Intake Under Scarcity**
-[
-E_j(t+1) = E_j(t) + \frac{I_j}{\sum_k I_k} \cdot B - \delta
-]
-
-Where:
-
-* ( I_j ) = local intake
-* ( B ) = global energy budget
-* ( \delta ) = decay constant
-
-**Nonlinear Strength Growth**
-[
-S_j = S_{max} \cdot \frac{E_j}{1 + E_j}
-]
-
-Dynamic invariants are mortal.
-
-They exist conditionally within law.
-
----
-
-### Layer 2 — Density Field
-
-Total curvature is:
-
-[
-D(\mathbf{x}, t) =
-\sum_i S_i \cdot e^{-k |\mathbf{x} - \mathbf{x}_i|}
-]
-
-Absolute anchors contribute constant curvature.
-
-Dynamic invariants contribute variable curvature.
-
-The manifold deforms under competitive pressure.
-
----
-
-## Global System Definition
-
-[
-\boxed{
-\begin{aligned}
-\text{Motion:} &\quad \frac{d\mathbf{x}}{dt} = -\nabla E \
-\text{Scarcity:} &\quad \sum_j \Delta E_j = B \
-\text{Growth:} &\quad S = \frac{S_{max}E}{1+E} \
-\text{Decay:} &\quad E \rightarrow E - \delta \
-\text{Anchors:} &\quad \frac{dA}{dt} = 0
-\end{aligned}
-}
-]
-
-This enforces:
-
-* Boundary
-* Deterministic constitution
-* Environmental modulation
-* Finite resource
-* Selection pressure
-* Recursive reinforcement
-
----
-
-## Relationship to Constitutional Sigil
-
-Constitutional Sigil defines the static manifold in dual projection (2D canonical, 3D elevation).
-
-Constitutional Field introduces dynamic competition inside that same seeded manifold.
-
-Sigil expresses the law.
-Field studies persistence within the law.
-
-Both share the same constitutional substrate.
-
----
-
-## Emergent Regimes
-
-Depending on parameter tuning and seed:
-
-* Stable multi-node equilibrium
-* Rotating dominance cycles
-* Migratory basin formation
-* Competitive collapse
-* Persistent critical churn
-
-The engine spans ordered, critical, and chaotic regimes.
-
-All behavior remains bounded by the constitution.
-
----
-
-## Intent
-
-Concept → Constraint → Field → Promotion → Competition → Selection → Emergence
-
-Constitutional Field operationalizes the thesis:
-
-> Legible structure emerges from constraint under recursion and scarcity.
-
-The constitution does not adapt.
-
-Dynamic structures must negotiate it.
-
----
-
-## Closing
-
-Constitutional Field is a recursive ecosystem inside a deterministic geometry.
-
-The law is stable.
-
-Scarcity is real.
-
-Selection is structural.
-
-Only what can persist under constraint remains.
+No license file is currently defined in this repository.
