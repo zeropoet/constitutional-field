@@ -53,6 +53,9 @@ export function createSimulationState(seed: number): SimState {
       budget: initialBudget,
       regulatorIntegral: 0,
       viewportMinPx: 1000,
+      worldOverflow: 0.22,
+      worldHalfW: 1,
+      worldHalfH: 1,
       domainRadius: 1,
       constitutionHash: CONSTITUTION_HASH,
       energyEnabled: false

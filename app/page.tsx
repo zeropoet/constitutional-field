@@ -120,7 +120,6 @@ export default function Home() {
           </div>
         </details>
       </aside>
-
       <Canvas preset={selectedPreset} seed={activeSeed} onTelemetry={setTelemetry} />
     </main>
   )

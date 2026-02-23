@@ -70,6 +70,9 @@ export type SimGlobals = {
   budget: number
   regulatorIntegral: number
   viewportMinPx: number
+  worldOverflow: number
+  worldHalfW: number
+  worldHalfH: number
   domainRadius: number
   constitutionHash: string
   energyEnabled: boolean

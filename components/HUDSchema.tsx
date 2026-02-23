@@ -66,6 +66,20 @@ export default function HUDSchema() {
           </p>
         </div>
         <div className="schema-item">
+          <span className="schema-scaffold">
+            <span className="schema-scaffold-line a" />
+            <span className="schema-scaffold-line b" />
+            <span className="schema-scaffold-node n1" />
+            <span className="schema-scaffold-node n2" />
+            <span className="schema-scaffold-node n3" />
+          </span>
+          <p>
+            <strong>Secondary Scaffold</strong>
+            <br />
+            Decaying memory points from the white trail connect into a constrained support network
+          </p>
+        </div>
+        <div className="schema-item">
           <span className="schema-phase">elder</span>
           <p>
             <strong>Age Phase</strong>

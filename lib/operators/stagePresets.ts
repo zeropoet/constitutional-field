@@ -4,7 +4,6 @@ import { clusterPoints, computeDensityGradient, computeEnergyGradient, dynamicIn
 import { computeMetrics } from "@/lib/metrics"
 import { deriveAlignmentControl, evaluateAlignment } from "@/lib/alignment/controller"
 
-const DOMAIN = 1
 const MAX_PROBE_TRAIL_POINTS = 20
 const RESPAWN_RADIUS_PX = 100
 
@@ -15,7 +14,9 @@ function seededUnit(seed: number, salt: number): number {
 
 function randomProbe(state: SimState, salt: number): ProbeParticle {
   const viewportMin = Math.max(1, state.globals.viewportMinPx)
-  const respawnRadiusWorld = Math.min(DOMAIN, (RESPAWN_RADIUS_PX * 2) / viewportMin)
+  const localDomainRadius =
+    Math.min(state.globals.worldHalfW, state.globals.worldHalfH) + state.globals.worldOverflow
+  const respawnRadiusWorld = Math.min(localDomainRadius, (RESPAWN_RADIUS_PX * 2) / viewportMin)
   const radius =
     Math.sqrt(seededUnit(state.globals.seed, state.globals.tick * 131 + salt * 29)) *
     respawnRadiusWorld
@@ -83,7 +84,10 @@ const basinDetectionOperator: Operator = (state, _params, dt) => {
     p.trail.push([p.x, p.y])
     if (p.trail.length > MAX_PROBE_TRAIL_POINTS) p.trail.shift()
 
-    if (Math.abs(p.x) > DOMAIN || Math.abs(p.y) > DOMAIN) {
+    if (
+      Math.abs(p.x) > state.globals.worldHalfW + state.globals.worldOverflow ||
+      Math.abs(p.y) > state.globals.worldHalfH + state.globals.worldOverflow
+    ) {
       state.probes[i] = randomProbe(state, i + 1)
     }
   }
