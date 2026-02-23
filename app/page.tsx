@@ -66,7 +66,7 @@ export default function Home() {
   return (
     <main className="shell">
       <aside className="bottom-dock">
-        <details className="panel-drop" open>
+        <details className="panel-drop">
           <summary>Constitution</summary>
           <div className="drop-content">
             <p className="description">
@@ -99,21 +99,21 @@ export default function Home() {
           </div>
         </details>
 
-        <details className="panel-drop panel-registry" open>
+        <details className="panel-drop panel-registry">
           <summary>Registry</summary>
           <div className="drop-content">
             <HUDRegistry entries={telemetry.registryEntries} tick={telemetry.tick} />
           </div>
         </details>
 
-        <details className="panel-drop" open>
+        <details className="panel-drop">
           <summary>Legend</summary>
           <div className="drop-content">
             <HUDSchema />
           </div>
         </details>
 
-        <details className="panel-drop" open>
+        <details className="panel-drop">
           <summary>Metrics</summary>
           <div className="drop-content">
             <HUDMetrics metrics={telemetry.metrics} />

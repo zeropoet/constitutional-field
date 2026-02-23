@@ -61,6 +61,10 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
     if (!context) return
 
     const ctx = context
+    const trailLayer = document.createElement("canvas")
+    const trailContext = trailLayer.getContext("2d")
+    const TRAIL_FALLOFF = 0.02
+    const AXIS_WHITE_BLEND = Math.max(0.18, Math.min(0.78, TRAIL_FALLOFF * 20))
     let width = 1
     let height = 1
     let rafId = 0
@@ -68,14 +72,19 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
 
     function resizeCanvas() {
       const dpr = window.devicePixelRatio || 1
-      width = Math.max(1, window.innerWidth)
-      height = Math.max(1, window.innerHeight)
-
-      el.style.width = `${width}px`
-      el.style.height = `${height}px`
+      const rect = el.getBoundingClientRect()
+      width = Math.max(1, Math.floor(rect.width))
+      height = Math.max(1, Math.floor(rect.height))
       el.width = Math.floor(width * dpr)
       el.height = Math.floor(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+      if (trailContext) {
+        trailLayer.width = Math.floor(width * dpr)
+        trailLayer.height = Math.floor(height * dpr)
+        trailContext.setTransform(dpr, 0, 0, dpr, 0, 0)
+        trailContext.lineCap = "round"
+      }
     }
 
     function render() {
@@ -110,21 +119,39 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
         }
       }
 
+      if (trailContext) {
+        trailContext.fillStyle = `rgba(0, 0, 0, ${TRAIL_FALLOFF})`
+        trailContext.fillRect(0, 0, width, height)
+      }
+
       ctx.save()
-      ctx.strokeStyle = "rgba(235, 242, 255, 0.35)"
       ctx.lineWidth = 1
+
+      const verticalAxis = ctx.createLinearGradient(bounds.cx, 0, bounds.cx, height)
+      verticalAxis.addColorStop(0, "rgba(255, 255, 255, 0.88)")
+      verticalAxis.addColorStop(0.5 - AXIS_WHITE_BLEND * 0.22, "rgba(239, 68, 68, 0.84)")
+      verticalAxis.addColorStop(0.5 + AXIS_WHITE_BLEND * 0.22, "rgba(239, 68, 68, 0.84)")
+      verticalAxis.addColorStop(1, "rgba(255, 255, 255, 0.88)")
+
+      const horizontalAxis = ctx.createLinearGradient(0, bounds.cy, width, bounds.cy)
+      horizontalAxis.addColorStop(0, "rgba(255, 255, 255, 0.88)")
+      horizontalAxis.addColorStop(0.5 - AXIS_WHITE_BLEND * 0.22, "rgba(239, 68, 68, 0.84)")
+      horizontalAxis.addColorStop(0.5 + AXIS_WHITE_BLEND * 0.22, "rgba(239, 68, 68, 0.84)")
+      horizontalAxis.addColorStop(1, "rgba(255, 255, 255, 0.88)")
 
       ctx.beginPath()
       ctx.moveTo(bounds.cx, 0)
       ctx.lineTo(bounds.cx, height)
+      ctx.strokeStyle = verticalAxis
       ctx.stroke()
 
       ctx.beginPath()
       ctx.moveTo(0, bounds.cy)
       ctx.lineTo(width, bounds.cy)
+      ctx.strokeStyle = horizontalAxis
       ctx.stroke()
 
-      ctx.fillStyle = "rgba(240, 246, 255, 0.8)"
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.72 + AXIS_WHITE_BLEND * 0.2})`
       ctx.font = "11px Avenir Next, Segoe UI, sans-serif"
       ctx.fillText("y", bounds.cx + 6, 14)
       ctx.fillText("x", width - 12, bounds.cy - 6)
@@ -141,25 +168,28 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
           const alpha = Math.max(0.12, 0.85 - ageNorm * 0.6) * (0.7 + speedNorm * 0.3)
           const size = 1.3 + speedNorm * 1.8 + ageNorm * 3.2
 
-          for (let i = 1; i < p.trail.length; i += 1) {
-            const prev = p.trail[i - 1]
-            const curr = p.trail[i]
-            const trailT = i / (p.trail.length - 1 || 1)
-            const segAlpha = alpha * trailT * (0.85 - ageNorm * 0.35)
-            const segWidth = (0.5 + speedNorm * 1.1) * trailT
-
-            ctx.beginPath()
-            ctx.moveTo(prev[0] / bounds.scale + bounds.cx, prev[1] / bounds.scale + bounds.cy)
-            ctx.lineTo(curr[0] / bounds.scale + bounds.cx, curr[1] / bounds.scale + bounds.cy)
-            ctx.strokeStyle = `hsla(${hue}, 90%, ${lightness}%, ${segAlpha})`
-            ctx.lineWidth = segWidth
-            ctx.stroke()
+          if (trailContext) {
+            const psx = p.prevX / bounds.scale + bounds.cx
+            const psy = p.prevY / bounds.scale + bounds.cy
+            trailContext.beginPath()
+            trailContext.moveTo(psx, psy)
+            trailContext.lineTo(sx, sy)
+            trailContext.strokeStyle = `rgba(255, 255, 255, ${Math.max(0.12, Math.min(0.95, alpha))})`
+            trailContext.lineWidth = 0.6 + speedNorm * 1.1
+            trailContext.stroke()
           }
 
           const headAlpha = Math.max(0.1, alpha * (0.95 - ageNorm * 0.55))
           ctx.fillStyle = `hsla(${hue}, 96%, ${lightness + 4}%, ${headAlpha})`
           ctx.fillRect(sx - size / 2, sy - size / 2, size, size)
+          ctx.strokeStyle = "rgba(239, 68, 68, 0.88)"
+          ctx.lineWidth = 0.6
+          ctx.strokeRect(sx - size / 2, sy - size / 2, size, size)
         }
+      }
+
+      if (trailContext) {
+        ctx.drawImage(trailLayer, 0, 0, trailLayer.width, trailLayer.height, 0, 0, width, height)
       }
 
       if (activePreset.showBasins) {
@@ -168,7 +198,7 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
         for (const basin of basinNodes) {
           const sx = basin.x / bounds.scale + bounds.cx
           const sy = basin.y / bounds.scale + bounds.cy
-          const radius = Math.min(26, 2.2 + basin.count * 0.62)
+          const radius = Math.min(13, 1.1 + basin.count * 0.31)
 
           ctx.beginPath()
           ctx.arc(sx, sy, radius, 0, Math.PI * 2)
@@ -246,6 +276,9 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
         const size = 7
         ctx.fillStyle = "rgba(229, 237, 255, 0.95)"
         ctx.fillRect(sx - size / 2, sy - size / 2, size, size)
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.96)"
+        ctx.lineWidth = 1
+        ctx.strokeRect(sx - size / 2, sy - size / 2, size, size)
         ctx.fillStyle = "rgba(217, 228, 252, 0.96)"
         ctx.font = "11px Avenir Next, Segoe UI, sans-serif"
         ctx.fillText(anchor.id, sx + 7, sy - 7)
@@ -274,5 +307,5 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
     }
   }, [onTelemetry])
 
-  return <canvas ref={ref} style={{ display: "block" }} />
+  return <canvas ref={ref} style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh", display: "block" }} />
 }

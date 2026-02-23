@@ -16,7 +16,7 @@ export default function HUDSchema() {
           <p>
             <strong>Age</strong>
             <br />
-            Older invariants draw thicker rings
+            Older invariants breathe, gain thicker rings, and develop arc halos
           </p>
         </div>
         <div className="schema-item">
@@ -36,6 +36,14 @@ export default function HUDSchema() {
           </p>
         </div>
         <div className="schema-item">
+          <span className="schema-basin" />
+          <p>
+            <strong>Basin Density</strong>
+            <br />
+            Transparent circles expand as basin particle count increases
+          </p>
+        </div>
+        <div className="schema-item">
           <span className="schema-probe">
             <span className="schema-probe-tail" />
             <span className="schema-probe-head" />
@@ -43,7 +51,18 @@ export default function HUDSchema() {
           <p>
             <strong>Probe Motion</strong>
             <br />
-            Trails show direction; cooler/slower to warmer/faster indicates probe velocity
+            White stroke paths persist for the session; probe heads show speed and age (larger + fainter)
+          </p>
+        </div>
+        <div className="schema-item">
+          <span className="schema-orbit">
+            <span className="schema-orbit-core" />
+            <span className="schema-orbit-dot" />
+          </span>
+          <p>
+            <strong>Elder Orbit</strong>
+            <br />
+            A small orbiting dot appears on elder invariants to mark advanced age
           </p>
         </div>
         <div className="schema-item">
