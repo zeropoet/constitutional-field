@@ -82,6 +82,13 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
     let lastFrameTime = 0
     let simAccumulator = 0
     let fieldResolution = 4
+    const WORLD_PICK_RADIUS_PX = 30
+    let dragState: {
+      pointerId: number
+      worldId: string
+      offsetX: number
+      offsetY: number
+    } | null = null
 
     function resizeCanvas() {
       const dpr = window.devicePixelRatio || 1
@@ -99,6 +106,81 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
         trailContext.setTransform(dpr, 0, 0, dpr, 0, 0)
         trailContext.lineCap = "round"
       }
+    }
+
+    function pointerToWorld(clientX: number, clientY: number): [number, number] {
+      const rect = el.getBoundingClientRect()
+      const x = clientX - rect.left
+      const y = clientY - rect.top
+      const bounds = getWorldBounds(width, height)
+      return [(x - bounds.cx) * bounds.scale, (y - bounds.cy) * bounds.scale]
+    }
+
+    function findNearestWorld(clientX: number, clientY: number): { id: string; x: number; y: number } | null {
+      const sim = simRef.current
+      const bounds = getWorldBounds(width, height)
+      const rect = el.getBoundingClientRect()
+      const sx = clientX - rect.left
+      const sy = clientY - rect.top
+      let nearest: { id: string; x: number; y: number; distPx: number } | null = null
+
+      for (const world of sim.invariants) {
+        if (!world.dynamic) continue
+        const wx = world.position[0] / bounds.scale + bounds.cx
+        const wy = world.position[1] / bounds.scale + bounds.cy
+        const distPx = Math.hypot(wx - sx, wy - sy)
+        if (distPx > WORLD_PICK_RADIUS_PX) continue
+        if (!nearest || distPx < nearest.distPx) {
+          nearest = { id: world.id, x: world.position[0], y: world.position[1], distPx }
+        }
+      }
+
+      if (!nearest) return null
+      return { id: nearest.id, x: nearest.x, y: nearest.y }
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      const hit = findNearestWorld(event.clientX, event.clientY)
+      if (!hit) return
+      const worldPoint = pointerToWorld(event.clientX, event.clientY)
+      dragState = {
+        pointerId: event.pointerId,
+        worldId: hit.id,
+        offsetX: hit.x - worldPoint[0],
+        offsetY: hit.y - worldPoint[1]
+      }
+      el.setPointerCapture(event.pointerId)
+      event.preventDefault()
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      const currentDrag = dragState
+      if (!currentDrag || currentDrag.pointerId !== event.pointerId) return
+      const sim = simRef.current
+      const world = sim.invariants.find((inv) => inv.id === currentDrag.worldId && inv.dynamic)
+      if (!world) return
+      const worldPoint = pointerToWorld(event.clientX, event.clientY)
+      world.position[0] = worldPoint[0] + currentDrag.offsetX
+      world.position[1] = worldPoint[1] + currentDrag.offsetY
+      world.vx = 0
+      world.vy = 0
+      event.preventDefault()
+    }
+
+    function endDrag(pointerId: number) {
+      if (!dragState || dragState.pointerId !== pointerId) return
+      if (el.hasPointerCapture(pointerId)) {
+        el.releasePointerCapture(pointerId)
+      }
+      dragState = null
+    }
+
+    function onPointerUp(event: PointerEvent) {
+      endDrag(event.pointerId)
+    }
+
+    function onPointerCancel(event: PointerEvent) {
+      endDrag(event.pointerId)
     }
 
     function render(now: number) {
@@ -504,12 +586,21 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
     }
 
     resizeCanvas()
+    el.style.touchAction = "none"
+    el.addEventListener("pointerdown", onPointerDown)
+    el.addEventListener("pointermove", onPointerMove)
+    el.addEventListener("pointerup", onPointerUp)
+    el.addEventListener("pointercancel", onPointerCancel)
     window.addEventListener("resize", resizeCanvas)
     window.visualViewport?.addEventListener("resize", resizeCanvas)
     rafId = requestAnimationFrame(render)
 
     return () => {
       cancelAnimationFrame(rafId)
+      el.removeEventListener("pointerdown", onPointerDown)
+      el.removeEventListener("pointermove", onPointerMove)
+      el.removeEventListener("pointerup", onPointerUp)
+      el.removeEventListener("pointercancel", onPointerCancel)
       window.removeEventListener("resize", resizeCanvas)
       window.visualViewport?.removeEventListener("resize", resizeCanvas)
     }
