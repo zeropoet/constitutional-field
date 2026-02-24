@@ -66,6 +66,7 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
     const trailContext = trailLayer.getContext("2d")
     const TRAIL_FALLOFF = 0.08
     const AXIS_OPACITY = 0.42
+    const CENTER_FORCE_OPACITY = 0.42
     const HELIOS_LATTICE_WORLD_CAP = 64
     let width = 1
     let height = 1
@@ -105,7 +106,7 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
         (max, anchor) => Math.max(max, Math.hypot(anchor.position[0], anchor.position[1])),
         0
       )
-      const centerForceRadiusPx = Math.max(12, (anchorRadiusWorld / bounds.scale) * 0.5)
+      const centerForceRadiusPx = Math.max(8, (anchorRadiusWorld / bounds.scale) * 0.3)
 
       ctx.clearRect(0, 0, width, height)
       const resolution = 4
@@ -172,8 +173,8 @@ export default function Canvas({ preset, seed, onTelemetry }: Props) {
         bounds.cy,
         centerForceRadiusPx
       )
-      coreGradient.addColorStop(0, `rgba(255, 255, 255, ${0.22 + centerForceNorm * 0.3})`)
-      coreGradient.addColorStop(0.68, `rgba(255, 255, 255, ${0.12 + centerForceNorm * 0.2})`)
+      coreGradient.addColorStop(0, `rgba(255, 255, 255, ${CENTER_FORCE_OPACITY})`)
+      coreGradient.addColorStop(0.68, `rgba(255, 255, 255, ${CENTER_FORCE_OPACITY * 0.55})`)
       coreGradient.addColorStop(1, "rgba(255, 255, 255, 0)")
       ctx.beginPath()
       ctx.arc(bounds.cx, bounds.cy, centerForceRadiusPx, 0, Math.PI * 2)
