@@ -50,7 +50,7 @@ function createRig(): AudioRig {
   pulseOsc.frequency.value = 2.2
   pulseGain.gain.value = 0.0001
 
-  master.gain.value = 0.08
+  master.gain.value = 0.22
 
   droneOsc.connect(filter)
   filter.connect(droneGain)
@@ -88,15 +88,18 @@ export default function HUDAudio({ telemetry }: Props) {
     const metrics = telemetry.metrics
     const dominance = clamp(metrics.dominanceIndex, 0, 1)
     const entropy = clamp(metrics.entropySpread, 0, 1)
-    const alignment = clamp(metrics.alignmentScore, 0, 1)
     const livingNorm = clamp(metrics.livingInvariants / 300, 0, 1)
+    const energyNorm = clamp(metrics.totalEnergy / 120, 0, 1)
+    const activityNorm = clamp(telemetry.eventCount / 28, 0, 1)
     const pan = clamp(metrics.conservedDelta / 2, -1, 1)
 
-    const droneFreq = 120 + dominance * 420
-    const filterFreq = 320 + entropy * 4200
-    const droneLevel = 0.014 + livingNorm * 0.05
-    const masterLevel = 0.06 + alignment * 0.12
-    const pulseRate = 1.5 + clamp(telemetry.eventCount / 24, 0, 1) * 8 + alignment * 2
+    // Coherent mapping:
+    // dominance -> pitch, entropy -> timbre brightness, living/energy -> loudness, events -> rhythm.
+    const droneFreq = 100 + dominance * 300
+    const filterFreq = 500 + entropy * 3000
+    const droneLevel = 0.012 + livingNorm * 0.032
+    const masterLevel = 0.18 + energyNorm * 0.22
+    const pulseRate = 1.4 + activityNorm * 7.6
 
     rig.droneOsc.frequency.setTargetAtTime(droneFreq, now, 0.12)
     rig.filter.frequency.setTargetAtTime(filterFreq, now, 0.12)
@@ -106,7 +109,7 @@ export default function HUDAudio({ telemetry }: Props) {
     rig.pan.pan.setTargetAtTime(pan, now, 0.12)
 
     if (telemetry.eventCount > 0) {
-      const eventAmp = 0.02 + clamp(telemetry.eventCount / 28, 0, 1) * 0.12
+      const eventAmp = 0.016 + activityNorm * 0.09
       rig.pulseGain.gain.cancelScheduledValues(now)
       rig.pulseGain.gain.setValueAtTime(Math.max(0.0001, rig.pulseGain.gain.value), now)
       rig.pulseGain.gain.linearRampToValueAtTime(eventAmp, now + 0.015)
