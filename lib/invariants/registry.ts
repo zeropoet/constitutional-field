@@ -1,5 +1,7 @@
 import type { InvariantRegistry, SimInvariant } from "@/lib/state/types"
 
+const MAX_HISTORY_SAMPLES = 600
+
 export function createRegistry(): InvariantRegistry {
   return { entries: {} }
 }
@@ -16,7 +18,7 @@ export function registerBirth(
     birthTick: tick,
     lineageParentIds,
     energyHistory: [inv.energy],
-    positionHistory: [inv.position],
+    positionHistory: [[inv.position[0], inv.position[1]]],
     peakStrength: inv.strength,
     kills: 0,
     territoryWins: 0
@@ -33,11 +35,11 @@ export function sampleInvariant(registry: InvariantRegistry, inv: SimInvariant):
   const entry = registry.entries[inv.id]
   if (!entry) return
 
-  if (entry.energyHistory.length > 1200) entry.energyHistory.shift()
-  if (entry.positionHistory.length > 1200) entry.positionHistory.shift()
+  if (entry.energyHistory.length > MAX_HISTORY_SAMPLES) entry.energyHistory.shift()
+  if (entry.positionHistory.length > MAX_HISTORY_SAMPLES) entry.positionHistory.shift()
 
   entry.energyHistory.push(inv.energy)
-  entry.positionHistory.push(inv.position)
+  entry.positionHistory.push([inv.position[0], inv.position[1]])
   entry.peakStrength = Math.max(entry.peakStrength, inv.strength)
 }
 

@@ -73,6 +73,7 @@ export type SimMetrics = {
   containmentRadius: number
   containmentWorldClamps: number
   containmentProbeClamps: number
+  containmentNearBoundaryPct: number
 }
 
 export type SimGlobals = {

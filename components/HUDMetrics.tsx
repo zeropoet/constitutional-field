@@ -48,6 +48,12 @@ function levelForClampCount(value: number): MetricLevel {
   return "critical"
 }
 
+function levelForBoundaryPressure(value: number): MetricLevel {
+  if (value <= 0.18) return "good"
+  if (value <= 0.4) return "warn"
+  return "critical"
+}
+
 function Item({
   label,
   value,
@@ -118,6 +124,11 @@ export default function HUDMetrics({ metrics }: Props) {
           label="Probe Clamps (tick)"
           value={metrics.containmentProbeClamps}
           level={levelForClampCount(metrics.containmentProbeClamps)}
+        />
+        <Item
+          label="Boundary Pressure"
+          value={`${(metrics.containmentNearBoundaryPct * 100).toFixed(1)}%`}
+          level={levelForBoundaryPressure(metrics.containmentNearBoundaryPct)}
         />
       </ul>
       <div className="alignment-statuses">

@@ -79,7 +79,8 @@ export function createSimulationState(seed: number): SimState {
       alignmentScore: 0,
       containmentRadius: 1,
       containmentWorldClamps: 0,
-      containmentProbeClamps: 0
+      containmentProbeClamps: 0,
+      containmentNearBoundaryPct: 0
     }
   }
 

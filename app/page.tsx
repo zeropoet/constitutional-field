@@ -21,6 +21,16 @@ type Telemetry = {
   anchors: Array<{ id: string; position: [number, number] }>
 }
 
+type PaletteMode = "default" | "deep-sea" | "chrome" | "flame"
+
+type RenderControls = {
+  fieldResolutionMin: number
+  fieldResolutionMax: number
+  rippleGain: number
+  rippleFrequency: number
+  vignetteStrength: number
+}
+
 const EMPTY_METRICS: SimMetrics = {
   totalEnergy: 0,
   budget: 0,
@@ -32,7 +42,8 @@ const EMPTY_METRICS: SimMetrics = {
   alignmentScore: 0,
   containmentRadius: 1,
   containmentWorldClamps: 0,
-  containmentProbeClamps: 0
+  containmentProbeClamps: 0,
+  containmentNearBoundaryPct: 0
 }
 
 const DEFAULT_SEED = 424242
@@ -47,6 +58,14 @@ export default function Home() {
     registryEntries: [],
     eventCount: 0,
     anchors: []
+  })
+  const [paletteMode, setPaletteMode] = useState<PaletteMode>("default")
+  const [renderControls, setRenderControls] = useState<RenderControls>({
+    fieldResolutionMin: 2,
+    fieldResolutionMax: 8,
+    rippleGain: 1,
+    rippleFrequency: 0.5,
+    vignetteStrength: 1
   })
 
   const anchorSummary =
@@ -76,6 +95,10 @@ export default function Home() {
     }
   }
 
+  function updateControl<K extends keyof RenderControls>(key: K, value: number) {
+    setRenderControls((prev) => ({ ...prev, [key]: value }))
+  }
+
   return (
     <main className="shell">
       <div className="center-logo-wrap" aria-hidden="true">
@@ -98,6 +121,20 @@ export default function Home() {
                 inputMode="numeric"
                 aria-label="Simulation seed"
               />
+            </label>
+
+            <label>
+              Energy Palette
+              <select
+                value={paletteMode}
+                onChange={(event) => setPaletteMode(event.target.value as PaletteMode)}
+                aria-label="Energy palette"
+              >
+                <option value="default">Default</option>
+                <option value="deep-sea">Deep Sea</option>
+                <option value="chrome">Chrome</option>
+                <option value="flame">Flame</option>
+              </select>
             </label>
 
             <div className="button-row">
@@ -133,6 +170,67 @@ export default function Home() {
         </details>
 
         <details className="panel-drop">
+          <summary>Render</summary>
+          <div className="drop-content">
+            <label>
+              Field Res Min ({renderControls.fieldResolutionMin})
+              <input
+                type="range"
+                min={2}
+                max={8}
+                step={1}
+                value={renderControls.fieldResolutionMin}
+                onChange={(event) => updateControl("fieldResolutionMin", Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Field Res Max ({renderControls.fieldResolutionMax})
+              <input
+                type="range"
+                min={4}
+                max={12}
+                step={1}
+                value={renderControls.fieldResolutionMax}
+                onChange={(event) => updateControl("fieldResolutionMax", Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Ripple Gain ({renderControls.rippleGain.toFixed(2)})
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.05}
+                value={renderControls.rippleGain}
+                onChange={(event) => updateControl("rippleGain", Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Ripple Frequency ({renderControls.rippleFrequency.toFixed(2)})
+              <input
+                type="range"
+                min={0.5}
+                max={2}
+                step={0.05}
+                value={renderControls.rippleFrequency}
+                onChange={(event) => updateControl("rippleFrequency", Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Vignette Strength ({renderControls.vignetteStrength.toFixed(2)})
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.02}
+                value={renderControls.vignetteStrength}
+                onChange={(event) => updateControl("vignetteStrength", Number(event.target.value))}
+              />
+            </label>
+          </div>
+        </details>
+
+        <details className="panel-drop">
           <summary>Legend</summary>
           <div className="drop-content">
             <HUDSchema />
@@ -146,7 +244,13 @@ export default function Home() {
           </div>
         </details>
       </aside>
-      <Canvas preset={selectedPreset} seed={activeSeed} showOriginConnections onTelemetry={setTelemetry} />
+      <Canvas
+        preset={selectedPreset}
+        seed={activeSeed}
+        paletteMode={paletteMode}
+        renderControls={renderControls}
+        onTelemetry={setTelemetry}
+      />
     </main>
   )
 }

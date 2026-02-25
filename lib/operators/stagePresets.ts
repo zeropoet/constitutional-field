@@ -85,11 +85,13 @@ const PARTICLE_COLLAPSE_PULL_GAIN = 0.036
 const PARTICLE_COLLAPSE_SPIRAL_GAIN = 0.012
 const PARTICLE_COLLAPSE_DAMPING = 0.9
 const PARTICLE_COLLAPSE_CORE_RADIUS = 0.06
-const CONTAINMENT_DOMAIN_RADIUS = 0.72
-const CONTAINMENT_SOFT_BAND = 0.18
-const CONTAINMENT_WORLD_PULL_GAIN = 0.04
-const CONTAINMENT_PROBE_PULL_GAIN = 0.05
-const CONTAINMENT_TANGENTIAL_DAMP = 0.975
+const CONTAINMENT = {
+  domainRadius: 0.72,
+  softBand: 0.18,
+  worldPullGain: 0.04,
+  probePullGain: 0.05,
+  tangentialDamp: 0.975
+} as const
 const worldPairLocks = new Map<string, number>()
 
 function pairKey(a: string, b: string): string {
@@ -1054,8 +1056,8 @@ const budgetRegulatorOperator: Operator = (state, _params, dt) => {
 
 const containmentFieldOperator: Operator = (state, _params, dt) => {
   const dtNorm = dt * 60
-  const radius = CONTAINMENT_DOMAIN_RADIUS
-  const softStart = Math.max(0.05, radius - CONTAINMENT_SOFT_BAND)
+  const radius = CONTAINMENT.domainRadius
+  const softStart = Math.max(0.05, radius - CONTAINMENT.softBand)
   let worldClampCount = 0
   let probeClampCount = 0
   state.globals.domainRadius = radius
@@ -1066,13 +1068,13 @@ const containmentFieldOperator: Operator = (state, _params, dt) => {
     const r = Math.hypot(x, y) || 1
     if (r > softStart) {
       const over = smoothstep01((r - softStart) / Math.max(1e-6, radius - softStart))
-      const pull = over * CONTAINMENT_WORLD_PULL_GAIN * dtNorm
+      const pull = over * CONTAINMENT.worldPullGain * dtNorm
       const ux = x / r
       const uy = y / r
       world.vx -= ux * pull
       world.vy -= uy * pull
-      world.vx *= CONTAINMENT_TANGENTIAL_DAMP
-      world.vy *= CONTAINMENT_TANGENTIAL_DAMP
+      world.vx *= CONTAINMENT.tangentialDamp
+      world.vy *= CONTAINMENT.tangentialDamp
     }
 
     if (r > radius) {
@@ -1093,13 +1095,13 @@ const containmentFieldOperator: Operator = (state, _params, dt) => {
     const r = Math.hypot(p.x, p.y) || 1
     if (r > softStart) {
       const over = smoothstep01((r - softStart) / Math.max(1e-6, radius - softStart))
-      const pull = over * CONTAINMENT_PROBE_PULL_GAIN * dtNorm
+      const pull = over * CONTAINMENT.probePullGain * dtNorm
       const ux = p.x / r
       const uy = p.y / r
       p.vx -= ux * pull
       p.vy -= uy * pull
-      p.vx *= CONTAINMENT_TANGENTIAL_DAMP
-      p.vy *= CONTAINMENT_TANGENTIAL_DAMP
+      p.vx *= CONTAINMENT.tangentialDamp
+      p.vy *= CONTAINMENT.tangentialDamp
     }
 
     if (r > radius) {

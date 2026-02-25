@@ -34,6 +34,12 @@ export function computeMetrics(state: SimState): SimMetrics {
     state.basins.length > 0
       ? state.basins.reduce((sum, basin) => sum + Math.min(1, basin.frames / 20), 0) / state.basins.length
       : 0
+  const boundaryThreshold = state.globals.domainRadius * 0.9
+  const nearBoundaryCount = livingDynamics.filter(
+    (inv) => Math.hypot(inv.position[0], inv.position[1]) >= boundaryThreshold
+  ).length
+  const containmentNearBoundaryPct =
+    livingDynamics.length > 0 ? nearBoundaryCount / livingDynamics.length : 0
 
   const core: SimMetrics = {
     totalEnergy,
@@ -46,7 +52,8 @@ export function computeMetrics(state: SimState): SimMetrics {
     alignmentScore: 0,
     containmentRadius: state.globals.domainRadius,
     containmentWorldClamps: state.globals.containmentWorldClamps,
-    containmentProbeClamps: state.globals.containmentProbeClamps
+    containmentProbeClamps: state.globals.containmentProbeClamps,
+    containmentNearBoundaryPct
   }
 
   const alignment = evaluateAlignment(core)
