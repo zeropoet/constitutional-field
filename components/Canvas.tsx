@@ -78,12 +78,14 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
     const RIPPLE_SPATIAL_FREQ = 34
     const RIPPLE_TIME_FREQ = 7.4
     const RIPPLE_DECAY = 5.8
+    const HELIOS_RIPPLE_BOOST = 2.2
     const PARTICLE_RIPPLE_CAP = 40
     const PARTICLE_RIPPLE_DENSITY_GAIN = 0.035
     const PARTICLE_RIPPLE_ENERGY_GAIN = 0.055
     const PARTICLE_RIPPLE_SPATIAL_FREQ = 52
     const PARTICLE_RIPPLE_TIME_FREQ = 10.5
     const PARTICLE_RIPPLE_DECAY = 8.2
+    const VIGNETTE_STRENGTH = 1
     const SIM_STEP = 0.008
     const TARGET_FRAME_MS = 16.6667
     const MAX_FRAME_MS = 50
@@ -234,6 +236,7 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
       const dynamicWorlds = sim.invariants.filter((inv) => inv.dynamic)
       const rippleWorlds = dynamicWorlds.slice(0, RIPPLE_WORLD_CAP)
       const rippleParticles = sim.probes.slice(0, PARTICLE_RIPPLE_CAP)
+      const heliosRippleBoost = dynamicWorlds.length >= HELIOS_LATTICE_WORLD_CAP ? HELIOS_RIPPLE_BOOST : 1
 
       ctx.clearRect(0, 0, width, height)
       const sampleDensityAtTime = (coords: [number, number], t: number): number => {
@@ -253,7 +256,7 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
           if (speedNorm <= 1e-4) continue
           const envelope = Math.exp(-dist * RIPPLE_DECAY) * speedNorm
           const phase = dist * RIPPLE_SPATIAL_FREQ - t * (RIPPLE_TIME_FREQ + speedNorm * 1.8)
-          base += Math.sin(phase) * envelope * RIPPLE_DENSITY_GAIN
+          base += Math.sin(phase) * envelope * RIPPLE_DENSITY_GAIN * heliosRippleBoost
         }
         for (const p of rippleParticles) {
           const dx = p.x - coords[0]
@@ -278,7 +281,7 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
           if (speedNorm <= 1e-4) continue
           const envelope = Math.exp(-dist * (RIPPLE_DECAY - 0.9)) * (0.35 + speedNorm * 0.65)
           const phase = dist * (RIPPLE_SPATIAL_FREQ * 0.92) - t * (RIPPLE_TIME_FREQ + speedNorm * 2.1)
-          base += Math.sin(phase) * envelope * RIPPLE_ENERGY_GAIN
+          base += Math.sin(phase) * envelope * RIPPLE_ENERGY_GAIN * heliosRippleBoost
         }
         for (const p of rippleParticles) {
           const dx = p.x - coords[0]
@@ -346,6 +349,15 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
       ctx.fillText("y", axisX + 6, 14)
       ctx.fillText("x", width - 12, axisY - 6)
       ctx.restore()
+
+      const vignetteRadius = Math.hypot(bounds.cx, bounds.cy)
+      const vignette = ctx.createRadialGradient(bounds.cx, bounds.cy, vignetteRadius * 0.18, bounds.cx, bounds.cy, vignetteRadius)
+      vignette.addColorStop(0, "rgba(0, 0, 0, 0)")
+      vignette.addColorStop(0.62, "rgba(0, 0, 0, 0.14)")
+      vignette.addColorStop(0.82, `rgba(0, 0, 0, ${VIGNETTE_STRENGTH * 0.56})`)
+      vignette.addColorStop(1, `rgba(0, 0, 0, ${VIGNETTE_STRENGTH})`)
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, width, height)
 
       const centerGradE = computeEnergyGradient(sim, [0, 0])
       const centerGradD = computeDensityGradient(sim, [0, 0])
@@ -568,21 +580,24 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
         const breath = 0.5 + 0.5 * Math.sin(sim.globals.time * 2.2 + age * 0.045)
         const radius = 3 + inv.stability * 3 + energyNorm * 3 + breath * 1.4
         const lineWidth = 1 + ageNorm * 2.3
+        const shellFill = "rgba(0, 0, 0, 0.42)"
+        const ringStroke = "rgba(0, 0, 0, 0.96)"
+        const coreFill = "rgba(0, 0, 0, 0.9)"
 
         ctx.beginPath()
         ctx.arc(sx, sy, radius + 2, 0, Math.PI * 2)
-        ctx.fillStyle = distressed ? "rgba(255, 255, 255, 0.36)" : "rgba(255, 255, 255, 0.28)"
+        ctx.fillStyle = shellFill
         ctx.fill()
 
         ctx.beginPath()
         ctx.arc(sx, sy, radius, 0, Math.PI * 2)
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.96)"
+        ctx.strokeStyle = ringStroke
         ctx.lineWidth = lineWidth
         ctx.stroke()
 
         ctx.beginPath()
         ctx.arc(sx, sy, Math.max(1.2, radius * 0.35), 0, Math.PI * 2)
-        ctx.fillStyle = distressed ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.88)"
+        ctx.fillStyle = coreFill
         ctx.fill()
 
         if (heliosLatticeActive || ageNorm > 0.18) {
