@@ -29,7 +29,10 @@ const EMPTY_METRICS: SimMetrics = {
   entropySpread: 0,
   dominanceIndex: 0,
   basinOccupancyStability: 0,
-  alignmentScore: 0
+  alignmentScore: 0,
+  containmentRadius: 1,
+  containmentWorldClamps: 0,
+  containmentProbeClamps: 0
 }
 
 const DEFAULT_SEED = 424242

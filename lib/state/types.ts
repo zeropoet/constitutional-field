@@ -70,6 +70,9 @@ export type SimMetrics = {
   dominanceIndex: number
   basinOccupancyStability: number
   alignmentScore: number
+  containmentRadius: number
+  containmentWorldClamps: number
+  containmentProbeClamps: number
 }
 
 export type SimGlobals = {
@@ -83,6 +86,8 @@ export type SimGlobals = {
   worldHalfW: number
   worldHalfH: number
   domainRadius: number
+  containmentWorldClamps: number
+  containmentProbeClamps: number
   constitutionHash: string
   energyEnabled: boolean
 }

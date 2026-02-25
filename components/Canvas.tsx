@@ -72,6 +72,18 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
     const PETAL_CAPTURE_ENABLED = false
     const PETAL_WORLD_CAP = 64
     const PETAL_CLUSTER_SWAY_GAIN = 0.22
+    const RIPPLE_WORLD_CAP = 24
+    const RIPPLE_DENSITY_GAIN = 0.06
+    const RIPPLE_ENERGY_GAIN = 0.09
+    const RIPPLE_SPATIAL_FREQ = 34
+    const RIPPLE_TIME_FREQ = 7.4
+    const RIPPLE_DECAY = 5.8
+    const PARTICLE_RIPPLE_CAP = 40
+    const PARTICLE_RIPPLE_DENSITY_GAIN = 0.035
+    const PARTICLE_RIPPLE_ENERGY_GAIN = 0.055
+    const PARTICLE_RIPPLE_SPATIAL_FREQ = 52
+    const PARTICLE_RIPPLE_TIME_FREQ = 10.5
+    const PARTICLE_RIPPLE_DECAY = 8.2
     const SIM_STEP = 0.008
     const TARGET_FRAME_MS = 16.6667
     const MAX_FRAME_MS = 50
@@ -219,6 +231,9 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
         0
       )
       const centerForceRadiusPx = Math.max(8, (anchorRadiusWorld / bounds.scale) * 0.3)
+      const dynamicWorlds = sim.invariants.filter((inv) => inv.dynamic)
+      const rippleWorlds = dynamicWorlds.slice(0, RIPPLE_WORLD_CAP)
+      const rippleParticles = sim.probes.slice(0, PARTICLE_RIPPLE_CAP)
 
       ctx.clearRect(0, 0, width, height)
       const sampleDensityAtTime = (coords: [number, number], t: number): number => {
@@ -230,11 +245,53 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
           const influence = inv.dynamic ? inv.strength : inv.strength * 1.5
           base += influence * Math.exp(-dist * 4)
         }
+        for (const world of rippleWorlds) {
+          const dx = world.position[0] - coords[0]
+          const dy = world.position[1] - coords[1]
+          const dist = Math.hypot(dx, dy)
+          const speedNorm = Math.max(0, Math.min(1, Math.hypot(world.vx, world.vy) / 0.055))
+          if (speedNorm <= 1e-4) continue
+          const envelope = Math.exp(-dist * RIPPLE_DECAY) * speedNorm
+          const phase = dist * RIPPLE_SPATIAL_FREQ - t * (RIPPLE_TIME_FREQ + speedNorm * 1.8)
+          base += Math.sin(phase) * envelope * RIPPLE_DENSITY_GAIN
+        }
+        for (const p of rippleParticles) {
+          const dx = p.x - coords[0]
+          const dy = p.y - coords[1]
+          const dist = Math.hypot(dx, dy)
+          const speedNorm = Math.max(0, Math.min(1, p.speed / 0.028))
+          if (speedNorm <= 1e-4) continue
+          const envelope = Math.exp(-dist * PARTICLE_RIPPLE_DECAY) * speedNorm
+          const phase = dist * PARTICLE_RIPPLE_SPATIAL_FREQ - t * (PARTICLE_RIPPLE_TIME_FREQ + speedNorm * 2.4)
+          base += Math.sin(phase) * envelope * PARTICLE_RIPPLE_DENSITY_GAIN
+        }
         return base
       }
       const sampleEnergyAtTime = (coords: [number, number], t: number): number => {
         if (!sim.globals.energyEnabled) return 0
-        return sim.fields.energy(coords, t)
+        let base = sim.fields.energy(coords, t)
+        for (const world of rippleWorlds) {
+          const dx = world.position[0] - coords[0]
+          const dy = world.position[1] - coords[1]
+          const dist = Math.hypot(dx, dy)
+          const speedNorm = Math.max(0, Math.min(1, Math.hypot(world.vx, world.vy) / 0.055))
+          if (speedNorm <= 1e-4) continue
+          const envelope = Math.exp(-dist * (RIPPLE_DECAY - 0.9)) * (0.35 + speedNorm * 0.65)
+          const phase = dist * (RIPPLE_SPATIAL_FREQ * 0.92) - t * (RIPPLE_TIME_FREQ + speedNorm * 2.1)
+          base += Math.sin(phase) * envelope * RIPPLE_ENERGY_GAIN
+        }
+        for (const p of rippleParticles) {
+          const dx = p.x - coords[0]
+          const dy = p.y - coords[1]
+          const dist = Math.hypot(dx, dy)
+          const speedNorm = Math.max(0, Math.min(1, p.speed / 0.028))
+          if (speedNorm <= 1e-4) continue
+          const envelope = Math.exp(-dist * (PARTICLE_RIPPLE_DECAY - 1.1)) * (0.3 + speedNorm * 0.7)
+          const phase =
+            dist * (PARTICLE_RIPPLE_SPATIAL_FREQ * 0.88) - t * (PARTICLE_RIPPLE_TIME_FREQ + speedNorm * 2.8)
+          base += Math.sin(phase) * envelope * PARTICLE_RIPPLE_ENERGY_GAIN
+        }
+        return base
       }
       const resolution = fieldResolution
       for (let x = 0; x < width; x += resolution) {
@@ -245,12 +302,11 @@ export default function Canvas({ preset, seed, showOriginConnections = false, on
           const energy = sampleEnergyAtTime([nx, ny], sim.globals.time)
 
           if (activePreset.colorMode === "energy") {
-            const brightness = Math.max(20, Math.min(80, density * 110))
+            const brightness = Math.max(24, Math.min(82, density * 120))
             const hue = ((200 + energy * 120) % 360 + 360) % 360
-            ctx.fillStyle = `hsl(${hue}, 88%, ${brightness}%)`
+            ctx.fillStyle = `hsl(${hue}, 80%, ${brightness}%)`
           } else {
-            const densityNorm = Math.max(0, Math.min(1, density))
-            const value = Math.max(34, Math.min(250, Math.floor(Math.pow(densityNorm, 0.82) * 255)))
+            const value = Math.max(42, Math.min(255, Math.floor(density * 255)))
             ctx.fillStyle = `rgb(${value}, ${value}, ${value})`
           }
 

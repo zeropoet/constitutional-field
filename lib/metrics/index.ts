@@ -43,7 +43,10 @@ export function computeMetrics(state: SimState): SimMetrics {
     entropySpread: shannonEntropy(strengths),
     dominanceIndex,
     basinOccupancyStability: basinStability,
-    alignmentScore: 0
+    alignmentScore: 0,
+    containmentRadius: state.globals.domainRadius,
+    containmentWorldClamps: state.globals.containmentWorldClamps,
+    containmentProbeClamps: state.globals.containmentProbeClamps
   }
 
   const alignment = evaluateAlignment(core)

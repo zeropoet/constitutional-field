@@ -78,6 +78,11 @@ const PARTICLE_COLLAPSE_PULL_GAIN = 0.036
 const PARTICLE_COLLAPSE_SPIRAL_GAIN = 0.012
 const PARTICLE_COLLAPSE_DAMPING = 0.9
 const PARTICLE_COLLAPSE_CORE_RADIUS = 0.06
+const CONTAINMENT_DOMAIN_RADIUS = 0.72
+const CONTAINMENT_SOFT_BAND = 0.18
+const CONTAINMENT_WORLD_PULL_GAIN = 0.04
+const CONTAINMENT_PROBE_PULL_GAIN = 0.05
+const CONTAINMENT_TANGENTIAL_DAMP = 0.975
 const worldPairLocks = new Map<string, number>()
 
 function pairKey(a: string, b: string): string {
@@ -136,6 +141,11 @@ function randomProbe(state: SimState, salt: number): ProbeParticle {
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
+}
+
+function smoothstep01(value: number): number {
+  const t = clamp01(value)
+  return t * t * (3 - 2 * t)
 }
 
 function nearestSupportPoint(state: SimState, x: number, y: number): { point: Vec2; distance: number } {
@@ -1021,6 +1031,74 @@ const budgetRegulatorOperator: Operator = (state, _params, dt) => {
   }
 }
 
+const containmentFieldOperator: Operator = (state, _params, dt) => {
+  const dtNorm = dt * 60
+  const radius = CONTAINMENT_DOMAIN_RADIUS
+  const softStart = Math.max(0.05, radius - CONTAINMENT_SOFT_BAND)
+  let worldClampCount = 0
+  let probeClampCount = 0
+  state.globals.domainRadius = radius
+
+  for (const world of dynamicInvariants(state)) {
+    const x = world.position[0]
+    const y = world.position[1]
+    const r = Math.hypot(x, y) || 1
+    if (r > softStart) {
+      const over = smoothstep01((r - softStart) / Math.max(1e-6, radius - softStart))
+      const pull = over * CONTAINMENT_WORLD_PULL_GAIN * dtNorm
+      const ux = x / r
+      const uy = y / r
+      world.vx -= ux * pull
+      world.vy -= uy * pull
+      world.vx *= CONTAINMENT_TANGENTIAL_DAMP
+      world.vy *= CONTAINMENT_TANGENTIAL_DAMP
+    }
+
+    if (r > radius) {
+      worldClampCount += 1
+      const ux = x / r
+      const uy = y / r
+      world.position[0] = ux * radius
+      world.position[1] = uy * radius
+      const outwardVelocity = world.vx * ux + world.vy * uy
+      if (outwardVelocity > 0) {
+        world.vx -= ux * outwardVelocity
+        world.vy -= uy * outwardVelocity
+      }
+    }
+  }
+
+  for (const p of state.probes) {
+    const r = Math.hypot(p.x, p.y) || 1
+    if (r > softStart) {
+      const over = smoothstep01((r - softStart) / Math.max(1e-6, radius - softStart))
+      const pull = over * CONTAINMENT_PROBE_PULL_GAIN * dtNorm
+      const ux = p.x / r
+      const uy = p.y / r
+      p.vx -= ux * pull
+      p.vy -= uy * pull
+      p.vx *= CONTAINMENT_TANGENTIAL_DAMP
+      p.vy *= CONTAINMENT_TANGENTIAL_DAMP
+    }
+
+    if (r > radius) {
+      probeClampCount += 1
+      const ux = p.x / r
+      const uy = p.y / r
+      p.x = ux * radius
+      p.y = uy * radius
+      const outwardVelocity = p.vx * ux + p.vy * uy
+      if (outwardVelocity > 0) {
+        p.vx -= ux * outwardVelocity
+        p.vy -= uy * outwardVelocity
+      }
+    }
+  }
+
+  state.globals.containmentWorldClamps = worldClampCount
+  state.globals.containmentProbeClamps = probeClampCount
+}
+
 export const Stage1: StagePreset = {
   id: "stage-1-closure",
   label: "Stage 1 - Closure",
@@ -1099,8 +1177,34 @@ export const Stage5: StagePreset = {
   ]
 }
 
-export const stagePresets: StagePreset[] = [Stage1, Stage2, Stage3, Stage4, Stage5]
+export const Stage6: StagePreset = {
+  id: "stage-6-field-containment",
+  label: "Stage 6 - Field Containment",
+  description: "Contains world and probe expansion inside a finite domain with soft-boundary correction.",
+  colorMode: "energy",
+  showProbes: true,
+  showBasins: true,
+  operators: [
+    closureOperator,
+    oscillationOperator,
+    basinDetectionOperator,
+    sanctuaryFieldOperator,
+    clusteredSignatureOperator,
+    emergentPromotionOperator,
+    competitiveEcosystemOperator,
+    selectionPressureOperator,
+    worldPhysicsOperator,
+    originClusterTetherOperator,
+    heliosGelMembraneOperator,
+    clusterCeilingOperator,
+    budgetRegulatorOperator,
+    containmentFieldOperator,
+    distressLifecycleOperator
+  ]
+}
+
+export const stagePresets: StagePreset[] = [Stage1, Stage2, Stage3, Stage4, Stage5, Stage6]
 
 export function getStagePreset(id: string): StagePreset {
-  return stagePresets.find((preset) => preset.id === id) ?? Stage5
+  return stagePresets.find((preset) => preset.id === id) ?? Stage6
 }

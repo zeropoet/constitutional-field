@@ -42,6 +42,12 @@ function levelForBasinStability(value: number): MetricLevel {
   return "critical"
 }
 
+function levelForClampCount(value: number): MetricLevel {
+  if (value <= 2) return "good"
+  if (value <= 12) return "warn"
+  return "critical"
+}
+
 function Item({
   label,
   value,
@@ -101,6 +107,17 @@ export default function HUDMetrics({ metrics }: Props) {
           label="Basin Stability"
           value={fmt(metrics.basinOccupancyStability)}
           level={levelForBasinStability(metrics.basinOccupancyStability)}
+        />
+        <Item label="Containment Radius" value={fmt(metrics.containmentRadius)} level="good" />
+        <Item
+          label="World Clamps (tick)"
+          value={metrics.containmentWorldClamps}
+          level={levelForClampCount(metrics.containmentWorldClamps)}
+        />
+        <Item
+          label="Probe Clamps (tick)"
+          value={metrics.containmentProbeClamps}
+          level={levelForClampCount(metrics.containmentProbeClamps)}
         />
       </ul>
       <div className="alignment-statuses">

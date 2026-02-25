@@ -61,6 +61,8 @@ export function createSimulationState(seed: number): SimState {
       worldHalfW: 1,
       worldHalfH: 1,
       domainRadius: 1,
+      containmentWorldClamps: 0,
+      containmentProbeClamps: 0,
       constitutionHash: CONSTITUTION_HASH,
       energyEnabled: false
     },
@@ -74,7 +76,10 @@ export function createSimulationState(seed: number): SimState {
       entropySpread: 0,
       dominanceIndex: 0,
       basinOccupancyStability: 0,
-      alignmentScore: 0
+      alignmentScore: 0,
+      containmentRadius: 1,
+      containmentWorldClamps: 0,
+      containmentProbeClamps: 0
     }
   }
 
@@ -111,6 +116,8 @@ export function stepSimulation(state: SimState, preset: StagePreset, dt: number)
   state.events = []
   state.globals.tick += 1
   state.globals.time += dt
+  state.globals.containmentWorldClamps = 0
+  state.globals.containmentProbeClamps = 0
 
   const step = compose(preset.operators)
   step(

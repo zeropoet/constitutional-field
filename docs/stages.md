@@ -22,5 +22,6 @@ Each stage is now a composition of operators. The simulation state is continuous
 - Operators: `closure`, `oscillation`, `basinDetection`, `emergentPromotion`, `competitiveEcosystem`, `selectionPressure`
 - New law introduced: global budget selection pressure.
 
-## Stage 6 Foundation
-Stage 6 is no longer a view-level toggle. It should be introduced by adding a new operator or changing composition rules in `lib/operators/stagePresets.ts`.
+## Stage 6
+- Operators: `closure`, `oscillation`, `basinDetection`, `emergentPromotion`, `competitiveEcosystem`, `selectionPressure`, `budgetRegulator`, `containmentField`
+- New law introduced: bounded-domain containment for worlds/probes via soft boundary pull + hard radial cap.
