@@ -80,6 +80,8 @@ export default function Canvas({
     const ctx = context
     const trailLayer = document.createElement("canvas")
     const trailContext = trailLayer.getContext("2d")
+    const logoImage = new Image()
+    logoImage.src = "/center-logo.svg"
     const TRAIL_FALLOFF = 0.03
     const AXIS_OPACITY = 0.52
     const CENTER_FORCE_OPACITY = 0.36
@@ -105,6 +107,8 @@ export default function Canvas({
     const PHASED_PROBE_RAMP_TICKS = 36
     const PHASED_IGNITION_MIN = 0.2
     const HELIOS_IGNITION_LINK_CAP = 120
+    const HELIOS_WORLD_SHADER_STAGGER_TICKS = 7
+    const HELIOS_WORLD_SHADER_BLEND_TICKS = 22
     const SPAWNING_WORLD_FIRE_TICKS = 90
     const HELIOS_GHOST_TRAIL_MAX_POINTS = 240
     const WORLD_TRAIL_CAP = 160
@@ -123,6 +127,10 @@ export default function Canvas({
     let adaptiveQuality = 1
     let hoverWorldId: string | null = null
     const WORLD_PICK_RADIUS_PX = 30
+    let logoOuterRingA = 0
+    let logoOuterRingB = 0
+    let heliosShaderStartTick: number | null = null
+    let wasHeliosArchitecturalPhase = false
     let dragState: {
       pointerId: number
       worldId: string
@@ -278,6 +286,26 @@ export default function Canvas({
       const centerForceRadiusPx = Math.max(8, (anchorRadiusWorld / bounds.scale) * 0.3)
       const dynamicWorlds = sim.invariants.filter((inv) => inv.dynamic)
       const heliosArchitecturalPhase = dynamicWorlds.length >= HELIOS_LATTICE_WORLD_CAP
+      const axisInvariantRadiusWorld = sim.anchors.reduce((max, anchor) => {
+        const onAxis = Math.abs(anchor.position[0]) < 1e-6 || Math.abs(anchor.position[1]) < 1e-6
+        if (!onAxis) return max
+        return Math.max(max, Math.hypot(anchor.position[0], anchor.position[1]))
+      }, 0)
+      const axisInvariantRadiusPx = axisInvariantRadiusWorld > 0 ? axisInvariantRadiusWorld / bounds.scale : 0
+      if (heliosArchitecturalPhase && !wasHeliosArchitecturalPhase) {
+        logoOuterRingA = centerForceRadiusPx + 4
+        logoOuterRingB = centerForceRadiusPx + 10
+      }
+      wasHeliosArchitecturalPhase = heliosArchitecturalPhase
+      if (heliosArchitecturalPhase) {
+        if (heliosShaderStartTick === null) heliosShaderStartTick = sim.globals.tick
+      } else {
+        heliosShaderStartTick = null
+      }
+      const maxWorldRadiusWorld = dynamicWorlds.reduce(
+        (max, world) => Math.max(max, Math.hypot(world.position[0], world.position[1])),
+        0
+      )
       let worldCentroidX = 0
       let worldCentroidY = 0
       let worldSpinSign = 1
@@ -482,6 +510,64 @@ export default function Canvas({
       ctx.fillStyle = coreGradient
       ctx.fill()
 
+      const ringLerp = Math.max(0.045, Math.min(0.14, (TARGET_FRAME_MS / Math.max(1, frameMs)) * 0.08))
+      const ringTargetA = heliosArchitecturalPhase
+        ? Math.max(centerForceRadiusPx + 8, (maxWorldRadiusWorld / bounds.scale) + 14)
+        : centerForceRadiusPx + 6
+      const ringTargetB = heliosArchitecturalPhase
+        ? Math.max(centerForceRadiusPx + 16, (maxWorldRadiusWorld / bounds.scale) + 34, axisInvariantRadiusPx + 10)
+        : Math.max(centerForceRadiusPx + 14, axisInvariantRadiusPx + 6)
+      logoOuterRingA += (ringTargetA - logoOuterRingA) * ringLerp
+      logoOuterRingB += (ringTargetB - logoOuterRingB) * ringLerp
+
+      if (logoOuterRingA > 0 && logoOuterRingB > 0) {
+        const outerAlphaBoost = heliosArchitecturalPhase ? 1 : 0.25
+
+        // Fill only the outer ring band with the same opacity language as the center glow.
+        const outerBand = ctx.createRadialGradient(
+          bounds.cx,
+          bounds.cy,
+          Math.max(0, logoOuterRingA - 2),
+          bounds.cx,
+          bounds.cy,
+          logoOuterRingB + 2
+        )
+        outerBand.addColorStop(0, "rgba(255, 255, 255, 0)")
+        outerBand.addColorStop(0.3, `rgba(255, 232, 186, ${CENTER_FORCE_OPACITY * 0.62 * outerAlphaBoost})`)
+        outerBand.addColorStop(0.72, `rgba(255, 241, 214, ${CENTER_FORCE_OPACITY * 0.4 * outerAlphaBoost})`)
+        outerBand.addColorStop(1, "rgba(255, 255, 255, 0)")
+        ctx.beginPath()
+        ctx.arc(bounds.cx, bounds.cy, logoOuterRingB + 2, 0, Math.PI * 2)
+        ctx.fillStyle = outerBand
+        ctx.fill()
+
+        // Middle ring remains transparent (stroke only).
+        ctx.beginPath()
+        ctx.arc(bounds.cx, bounds.cy, logoOuterRingA, 0, Math.PI * 2)
+        const innerRingAlpha = heliosArchitecturalPhase ? 0.42 : CENTER_FORCE_OPACITY * 0.2
+        ctx.strokeStyle = `rgba(0, 0, 0, ${innerRingAlpha})`
+        ctx.lineWidth = 1.3
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.arc(bounds.cx, bounds.cy, logoOuterRingB, 0, Math.PI * 2)
+        const outerRingAlpha = heliosArchitecturalPhase ? 0.42 : CENTER_FORCE_OPACITY * 0.2
+        ctx.strokeStyle = `rgba(255, 236, 196, ${outerRingAlpha})`
+        ctx.lineWidth = 1.8
+        ctx.stroke()
+      }
+
+      // Keep the SVG logo above force fields and below animated entities.
+      if (logoImage.complete && logoImage.naturalWidth > 0) {
+        const logoSize = Math.min(width * 0.2, 220)
+        const logoHalf = logoSize / 2
+        ctx.save()
+        ctx.globalCompositeOperation = "multiply"
+        ctx.globalAlpha = 0.42
+        ctx.drawImage(logoImage, bounds.cx - logoHalf, bounds.cy - logoHalf, logoSize, logoSize)
+        ctx.restore()
+      }
+
       if (activePreset.showProbes) {
         if (heliosArchitecturalPhase && dynamicWorlds.length > 0) {
           const centerSX = worldCentroidX / bounds.scale + bounds.cx
@@ -673,10 +759,26 @@ export default function Canvas({
       const dynamicInvariants = sim.invariants.filter((inv) => inv.dynamic)
       const basinById = new Map(sim.basins.map((basin) => [basin.id, basin]))
       const heliosLatticeActive = dynamicInvariants.length >= HELIOS_LATTICE_WORLD_CAP
+      const worldShaderPhaseById = new Map<string, number>()
       const worldFlameInfluence = new Map<string, number>()
       const phasedProbes = heliosLatticeActive
         ? sim.probes.filter((probe) => phasedProbeWeight(probe.age) >= PHASED_IGNITION_MIN)
         : []
+      if (heliosLatticeActive && dynamicInvariants.length > 0 && heliosShaderStartTick !== null) {
+        const centroidX = dynamicInvariants.reduce((sum, inv) => sum + inv.position[0], 0) / dynamicInvariants.length
+        const centroidY = dynamicInvariants.reduce((sum, inv) => sum + inv.position[1], 0) / dynamicInvariants.length
+        const ordered = [...dynamicInvariants].sort((a, b) => {
+          const aAngle = Math.atan2(a.position[1] - centroidY, a.position[0] - centroidX)
+          const bAngle = Math.atan2(b.position[1] - centroidY, b.position[0] - centroidX)
+          return aAngle - bAngle
+        })
+        const elapsed = Math.max(0, sim.globals.tick - heliosShaderStartTick)
+        for (let i = 0; i < ordered.length; i += 1) {
+          const startTick = i * HELIOS_WORLD_SHADER_STAGGER_TICKS
+          const phase = (elapsed - startTick) / HELIOS_WORLD_SHADER_BLEND_TICKS
+          worldShaderPhaseById.set(ordered[i].id, Math.max(0, Math.min(1, phase)))
+        }
+      }
       if (heliosLatticeActive && dynamicInvariants.length > 0 && phasedProbes.length > 0) {
         const probeStride = Math.max(1, Math.ceil(phasedProbes.length / 180))
         for (const inv of dynamicInvariants) {
@@ -700,6 +802,7 @@ export default function Canvas({
         const energyNorm = Math.max(0, Math.min(1, inv.energy / 25))
         const spawning = age <= SPAWNING_WORLD_FIRE_TICKS
         const ignition = worldFlameInfluence.get(inv.id) ?? 0
+        const shaderPhase = worldShaderPhaseById.get(inv.id) ?? (heliosLatticeActive ? 0 : 1)
         const fireHue = 8 + energyNorm * 42 + (1 - ageNorm) * 10
 
         if (spawning) {
@@ -709,12 +812,19 @@ export default function Canvas({
             coreFill: `hsla(${Math.min(64, fireHue + 6)}, 100%, ${64 + energyNorm * 14}%, 0.92)`
           }
         }
-        if (heliosLatticeActive && ignition > 0.03) {
+        if (heliosLatticeActive) {
           const igniteHue = 12 + energyNorm * 34 + ignition * 14
+          const flameMix = ignition > 0.03 ? shaderPhase : 0
+          const shellBase = 0.22 + ignition * 0.14
+          const ringBase = 0.46 + ignition * 0.18
+          const coreBase = 0.52 + ignition * 0.16
+          const shellFlame = 0.36 + ignition * 0.22
+          const ringFlame = 0.88 + ignition * 0.12
+          const coreFlame = 0.86 + ignition * 0.14
           return {
-            shellFill: `hsla(${Math.max(6, igniteHue - 10)}, 96%, ${42 + ignition * 12}%, ${0.3 + ignition * 0.24})`,
-            ringStroke: `hsla(${igniteHue}, 100%, ${66 + ignition * 16}%, ${0.86 + ignition * 0.14})`,
-            coreFill: `hsla(${Math.min(74, igniteHue + 10)}, 100%, ${72 + ignition * 12}%, ${0.82 + ignition * 0.16})`
+            shellFill: `hsla(${Math.max(6, igniteHue - 10)}, 96%, ${42 + ignition * 12}%, ${shellBase + (shellFlame - shellBase) * flameMix})`,
+            ringStroke: `hsla(${igniteHue}, 100%, ${66 + ignition * 16}%, ${ringBase + (ringFlame - ringBase) * flameMix})`,
+            coreFill: `hsla(${Math.min(74, igniteHue + 10)}, 100%, ${72 + ignition * 12}%, ${coreBase + (coreFlame - coreBase) * flameMix})`
           }
         }
 
