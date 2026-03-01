@@ -63,9 +63,9 @@ export default function Home() {
   const [renderControls, setRenderControls] = useState<RenderControls>({
     fieldResolutionMin: 2,
     fieldResolutionMax: 8,
-    rippleGain: 1,
+    rippleGain: 2,
     rippleFrequency: 0.5,
-    vignetteStrength: 1
+    vignetteStrength: 0
   })
 
   const anchorSummary =

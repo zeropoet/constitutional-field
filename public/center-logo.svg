@@ -20,7 +20,7 @@
   <!-- Core OVEL mark -->
   <g class="core">
     <circle cx="600" cy="600" r="220" fill="none" stroke="#000" stroke-width="12" />
-    <circle cx="600" cy="600" r="122" fill="#fff" />
+    <circle cx="600" cy="600" r="122" fill="transparent" />
     <circle cx="600" cy="600" r="52" fill="#000" />
   </g>
 </svg>

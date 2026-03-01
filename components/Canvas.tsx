@@ -121,6 +121,8 @@ export default function Canvas({
     const HELIOS_IGNITION_LINK_CAP = 120
     const HELIOS_WORLD_SHADER_STAGGER_TICKS = 7
     const HELIOS_WORLD_SHADER_BLEND_TICKS = 22
+    const HELIOS_WORLD_SHADER_EXIT_STAGGER_TICKS = 12
+    const HELIOS_WORLD_SHADER_EXIT_BLEND_TICKS = 44
     const SPAWNING_WORLD_FIRE_TICKS = 90
     const HELIOS_GHOST_TRAIL_MAX_POINTS = 240
     const WORLD_TRAIL_CAP = 160
@@ -142,6 +144,9 @@ export default function Canvas({
     let logoOuterRingA = 0
     let logoOuterRingB = 0
     let heliosShaderStartTick: number | null = null
+    let heliosShaderExitStartTick: number | null = null
+    const heliosWorldOrderById = new Map<string, number>()
+    let heliosWorldOrderSize = 0
     let wasHeliosArchitecturalPhase = false
     let dragState: {
       pointerId: number
@@ -308,9 +313,13 @@ export default function Canvas({
         logoOuterRingA = centerForceRadiusPx + 4
         logoOuterRingB = centerForceRadiusPx + 10
       }
+      if (!heliosArchitecturalPhase && wasHeliosArchitecturalPhase && dynamicWorlds.length > 0) {
+        heliosShaderExitStartTick = sim.globals.tick
+      }
       wasHeliosArchitecturalPhase = heliosArchitecturalPhase
       if (heliosArchitecturalPhase) {
         if (heliosShaderStartTick === null) heliosShaderStartTick = sim.globals.tick
+        heliosShaderExitStartTick = null
       } else {
         heliosShaderStartTick = null
       }
@@ -796,6 +805,7 @@ export default function Canvas({
       const basinById = new Map(sim.basins.map((basin) => [basin.id, basin]))
       const heliosLatticeActive = dynamicInvariants.length >= HELIOS_LATTICE_WORLD_CAP
       const worldShaderPhaseById = new Map<string, number>()
+      const worldCooldownPhaseById = new Map<string, number>()
       const worldFlameInfluence = new Map<string, number>()
       const phasedProbes = heliosLatticeActive
         ? sim.probes.filter((probe) => phasedProbeWeight(probe.age) >= PHASED_IGNITION_MIN)
@@ -809,10 +819,31 @@ export default function Canvas({
           return aAngle - bAngle
         })
         const elapsed = Math.max(0, sim.globals.tick - heliosShaderStartTick)
+        heliosWorldOrderById.clear()
+        heliosWorldOrderSize = ordered.length
         for (let i = 0; i < ordered.length; i += 1) {
+          heliosWorldOrderById.set(ordered[i].id, i)
           const startTick = i * HELIOS_WORLD_SHADER_STAGGER_TICKS
           const phase = (elapsed - startTick) / HELIOS_WORLD_SHADER_BLEND_TICKS
           worldShaderPhaseById.set(ordered[i].id, Math.max(0, Math.min(1, phase)))
+        }
+      }
+      if (!heliosLatticeActive && dynamicInvariants.length > 0 && heliosShaderExitStartTick !== null) {
+        const elapsed = Math.max(0, sim.globals.tick - heliosShaderExitStartTick)
+        let hasPendingCooldown = false
+        for (const inv of dynamicInvariants) {
+          const order = heliosWorldOrderById.get(inv.id)
+          if (order === undefined) continue
+          const startTick = order * HELIOS_WORLD_SHADER_EXIT_STAGGER_TICKS
+          const phase = (elapsed - startTick) / HELIOS_WORLD_SHADER_EXIT_BLEND_TICKS
+          const clamped = Math.max(0, Math.min(1, phase))
+          if (clamped < 1) hasPendingCooldown = true
+          worldCooldownPhaseById.set(inv.id, clamped)
+        }
+        const cooldownDurationTicks =
+          Math.max(1, heliosWorldOrderSize) * HELIOS_WORLD_SHADER_EXIT_STAGGER_TICKS + HELIOS_WORLD_SHADER_EXIT_BLEND_TICKS
+        if (!hasPendingCooldown && elapsed > cooldownDurationTicks) {
+          heliosShaderExitStartTick = null
         }
       }
       if (heliosLatticeActive && dynamicInvariants.length > 0 && phasedProbes.length > 0) {
@@ -861,6 +892,24 @@ export default function Canvas({
             shellFill: `hsla(${Math.max(6, igniteHue - 10)}, 96%, ${42 + ignition * 12}%, ${shellBase + (shellFlame - shellBase) * flameMix})`,
             ringStroke: `hsla(${igniteHue}, 100%, ${66 + ignition * 16}%, ${ringBase + (ringFlame - ringBase) * flameMix})`,
             coreFill: `hsla(${Math.min(74, igniteHue + 10)}, 100%, ${72 + ignition * 12}%, ${coreBase + (coreFlame - coreBase) * flameMix})`
+          }
+        }
+        const cooldownPhase = worldCooldownPhaseById.get(inv.id) ?? 0
+        if (cooldownPhase > 0) {
+          const warmHue = 14 + energyNorm * 12
+          const shellSat = 8 + (95 - 8) * cooldownPhase
+          const shellLight = 92 + (40 + energyNorm * 10 - 92) * cooldownPhase
+          const shellAlpha = 0.34 + (0.44 - 0.34) * cooldownPhase
+          const ringSat = 6 + (98 - 6) * cooldownPhase
+          const ringLight = 97 + (62 + energyNorm * 12 - 97) * cooldownPhase
+          const ringAlpha = 0.96 + (0.98 - 0.96) * cooldownPhase
+          const coreSat = 4 + (100 - 4) * cooldownPhase
+          const coreLight = 94 + (68 + energyNorm * 10 - 94) * cooldownPhase
+          const coreAlpha = 0.9 + (0.92 - 0.9) * cooldownPhase
+          return {
+            shellFill: `hsla(${Math.max(6, warmHue - 10)}, ${shellSat}%, ${shellLight}%, ${shellAlpha})`,
+            ringStroke: `hsla(${warmHue}, ${ringSat}%, ${ringLight}%, ${ringAlpha})`,
+            coreFill: `hsla(${Math.min(72, warmHue + 8)}, ${coreSat}%, ${coreLight}%, ${coreAlpha})`
           }
         }
 
