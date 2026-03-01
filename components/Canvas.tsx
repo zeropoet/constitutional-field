@@ -93,7 +93,7 @@ export default function Canvas({
       logoImageReady = false
       logoImageFailed = true
     }
-    logoImage.src = `${assetPrefix}/center-logo.svg`
+    logoImage.src = `${assetPrefix}/center-logo.svg?v=2`
     const TRAIL_FALLOFF = 0.03
     const AXIS_OPACITY = 0.52
     const CENTER_FORCE_OPACITY = 0.36
@@ -592,7 +592,6 @@ export default function Canvas({
         // Fallback keeps the center mark visible even if the SVG path fails in exported/basePath builds.
         const logoHalf = Math.min(width * 0.2, 220) / 2
         const outerR = logoHalf * (220 / 600)
-        const whiteR = logoHalf * (122 / 600)
         const coreR = logoHalf * (52 / 600)
         ctx.save()
         ctx.globalCompositeOperation = "source-over"
@@ -602,10 +601,6 @@ export default function Canvas({
         ctx.strokeStyle = "#000"
         ctx.lineWidth = Math.max(1, logoHalf * 0.02)
         ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(bounds.cx, bounds.cy, whiteR, 0, Math.PI * 2)
-        ctx.fillStyle = "#fff"
-        ctx.fill()
         ctx.beginPath()
         ctx.arc(bounds.cx, bounds.cy, coreR, 0, Math.PI * 2)
         ctx.fillStyle = "#000"
