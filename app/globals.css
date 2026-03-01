@@ -46,15 +46,20 @@ body {
   right: 12px;
   bottom: 12px;
   z-index: 20;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: end;
   width: calc(100vw - 24px);
   max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .panel-drop {
+  flex: 1 1 0;
+  min-width: 0;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 0;
   background: rgba(0, 0, 0, 0.38);
@@ -496,19 +501,7 @@ body {
   background: rgba(245, 219, 159, 0.9);
 }
 
-@media (max-width: 1100px) {
-  .bottom-dock {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-  }
-}
-
 @media (max-width: 700px) {
-  .bottom-dock {
-    grid-template-columns: 1fr;
-    max-height: 58dvh;
-    overflow-y: auto;
-  }
-
   .panel-registry .drop-content {
     max-height: min(36dvh, calc(100dvh - 300px));
   }
