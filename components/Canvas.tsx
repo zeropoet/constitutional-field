@@ -562,8 +562,9 @@ export default function Canvas({
         const logoSize = Math.min(width * 0.2, 220)
         const logoHalf = logoSize / 2
         ctx.save()
-        ctx.globalCompositeOperation = "multiply"
-        ctx.globalAlpha = 0.42
+        // Use normal compositing so dark logo details (the center core) stay visible.
+        ctx.globalCompositeOperation = "source-over"
+        ctx.globalAlpha = 0.62
         ctx.drawImage(logoImage, bounds.cx - logoHalf, bounds.cy - logoHalf, logoSize, logoSize)
         ctx.restore()
       }
