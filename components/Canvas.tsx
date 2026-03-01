@@ -81,7 +81,19 @@ export default function Canvas({
     const trailLayer = document.createElement("canvas")
     const trailContext = trailLayer.getContext("2d")
     const logoImage = new Image()
-    logoImage.src = "/center-logo.svg"
+    let logoImageReady = false
+    let logoImageFailed = false
+    const nextData = (globalThis as { __NEXT_DATA__?: { assetPrefix?: string } }).__NEXT_DATA__
+    const assetPrefix = typeof nextData?.assetPrefix === "string" ? nextData.assetPrefix : ""
+    logoImage.onload = () => {
+      logoImageReady = true
+      logoImageFailed = false
+    }
+    logoImage.onerror = () => {
+      logoImageReady = false
+      logoImageFailed = true
+    }
+    logoImage.src = `${assetPrefix}/center-logo.svg`
     const TRAIL_FALLOFF = 0.03
     const AXIS_OPACITY = 0.52
     const CENTER_FORCE_OPACITY = 0.36
@@ -558,7 +570,7 @@ export default function Canvas({
       }
 
       // Keep the SVG logo above force fields and below animated entities.
-      if (logoImage.complete && logoImage.naturalWidth > 0) {
+      if (logoImageReady && logoImage.complete && logoImage.naturalWidth > 0) {
         const logoSize = Math.min(width * 0.2, 220)
         const logoHalf = logoSize / 2
         ctx.save()
@@ -566,6 +578,29 @@ export default function Canvas({
         ctx.globalCompositeOperation = "source-over"
         ctx.globalAlpha = 0.62
         ctx.drawImage(logoImage, bounds.cx - logoHalf, bounds.cy - logoHalf, logoSize, logoSize)
+        ctx.restore()
+      } else if (logoImageFailed) {
+        // Fallback keeps the center mark visible even if the SVG path fails in exported/basePath builds.
+        const logoHalf = Math.min(width * 0.2, 220) / 2
+        const outerR = logoHalf * (220 / 600)
+        const whiteR = logoHalf * (122 / 600)
+        const coreR = logoHalf * (52 / 600)
+        ctx.save()
+        ctx.globalCompositeOperation = "source-over"
+        ctx.globalAlpha = 0.62
+        ctx.beginPath()
+        ctx.arc(bounds.cx, bounds.cy, outerR, 0, Math.PI * 2)
+        ctx.strokeStyle = "#000"
+        ctx.lineWidth = Math.max(1, logoHalf * 0.02)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(bounds.cx, bounds.cy, whiteR, 0, Math.PI * 2)
+        ctx.fillStyle = "#fff"
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(bounds.cx, bounds.cy, coreR, 0, Math.PI * 2)
+        ctx.fillStyle = "#000"
+        ctx.fill()
         ctx.restore()
       }
 
