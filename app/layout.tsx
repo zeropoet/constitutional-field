@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ReactNode } from "react"
 
 export const metadata: Metadata = {
-  title: "Invariant Lab",
+  title: "Constitutional Field",
   description: "A staged visualization engine for dimensional emergence"
 }
 

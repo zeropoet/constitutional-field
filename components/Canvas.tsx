@@ -498,7 +498,7 @@ export default function Canvas({
       ctx.stroke()
 
       ctx.fillStyle = `rgba(255, 255, 255, ${AXIS_OPACITY})`
-      ctx.font = "11px Avenir Next, Segoe UI, sans-serif"
+      ctx.font = '11px "IBM Plex Mono", monospace'
       ctx.fillText("y", axisX + 6, 14)
       ctx.fillText("x", width - 12, axisY - 6)
       ctx.restore()
@@ -1173,7 +1173,7 @@ export default function Canvas({
 
         if (showTopLabels && (topDynamicIds.has(inv.id) || hoverWorldId === inv.id)) {
           ctx.fillStyle = "rgba(255, 255, 255, 0.96)"
-          ctx.font = "11px Avenir Next, Segoe UI, sans-serif"
+          ctx.font = '11px "IBM Plex Mono", monospace'
           const distressLabel = distressed ? ` d${distressRemaining}` : ""
           ctx.fillText(`${inv.id} a${age} e${inv.energy.toFixed(1)}${distressLabel}`, sx + radius + 4, sy - radius - 4)
         }
@@ -1187,7 +1187,7 @@ export default function Canvas({
         ctx.fillRect(sx - size / 2, sy - size / 2, size, size)
         if (anchor.id === "B" || anchor.id === "Ci") {
           ctx.fillStyle = "rgba(255, 255, 255, 0.96)"
-          ctx.font = "11px Avenir Next, Segoe UI, sans-serif"
+          ctx.font = '11px "IBM Plex Mono", monospace'
           ctx.fillText(anchor.id, sx + 7, sy - 7)
         }
       }
